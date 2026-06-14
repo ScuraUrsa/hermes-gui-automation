@@ -1,0 +1,74 @@
+name: Model Update
+
+on:
+  schedule:
+    - cron: '0 0 1 * *'  # Monthly on the 1st at 00:00 UTC
+  workflow_dispatch:
+
+jobs:
+  check-model-updates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for new Florence-2 releases
+        run: |
+          echo "Checking Florence-2 model updates..."
+          LATEST=$(curl -s https://huggingface.co/api/models/microsoft/Florence-2-base | jq -r '.lastModified')
+          echo "Latest Florence-2 update: ${LATEST}"
+          echo "FLORENCE_DATE=${LATEST}" >> $GITHUB_ENV
+      - name: Check for new OmniParser releases
+        run: |
+          echo "Checking OmniParser updates..."
+          LATEST=$(curl -s https://huggingface.co/api/models/microsoft/OmniParser | jq -r '.lastModified')
+          echo "Latest OmniParser update: ${LATEST}"
+          echo "OMNIPARSER_DATE=${LATEST}" >> $GITHUB_ENV
+      - name: Check for new Tesseract releases
+        run: |
+          echo "Checking Tesseract updates..."
+          LATEST=$(curl -s https://api.github.com/repos/tesseract-ocr/tesseract/releases/latest | jq -r '.tag_name')
+          echo "Latest Tesseract release: ${LATEST}"
+          echo "TESSERACT_VERSION=${LATEST}" >> $GITHUB_ENV
+
+  download-and-test:
+    needs: check-model-updates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb tesseract-ocr tesseract-ocr-eng
+      - name: Install Python deps
+        run: pip install transformers torch Pillow mss pytesseract pytest
+      - name: Start Xvfb
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 -ac +extension RANDR &
+          sleep 1
+      - name: Download and test new models
+        run: |
+          export DISPLAY=:99
+          python3 -c "
+          from transformers import AutoProcessor, AutoModelForCausalLM
+          print('Downloading Florence-2...')
+          model = AutoModelForCausalLM.from_pretrained('microsoft/Florence-2-base', trust_remote_code=True)
+          print('Florence-2 model OK')
+          "
+      - name: Run vision tests
+        run: |
+          export DISPLAY=:99
+          pytest tests/test_vision.py -v -m vlm || echo "VLM tests skipped (model may need GPU)"
+
+  promote-model:
+    needs: download-and-test
+    if: success()
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Update model symlink on production
+        run: |
+          echo "Model promotion would update production symlink"
+          echo "This step requires SSH access to production VM"

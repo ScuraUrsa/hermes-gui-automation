@@ -1,0 +1,82 @@
+name: Deploy Production
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  pre-flight:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install linting tools
+        run: pip install ruff
+      - name: Run ruff
+        run: ruff check hermes_gui/ tests/
+      - name: Run smoke tests against staging
+        run: |
+          pip install -r tests/requirements-test.txt
+          export DISPLAY=:99
+          pytest -m smoke
+
+  deploy-production:
+    needs: pre-flight
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Ansible
+        run: pip install ansible
+      - name: Install collections
+        run: ansible-galaxy collection install -r ansible/requirements.yml
+      - name: Deploy to production
+        env:
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        run: |
+          echo "${ANSIBLE_VAULT_PASSWORD}" > /tmp/vault-pass
+          ansible-playbook -i ansible/inventory/production/hosts.yml \
+            ansible/playbooks/gui_vm_full_deploy.yml \
+            --vault-password-file /tmp/vault-pass
+      - name: Run smoke tests against production
+        run: |
+          pip install -r tests/requirements-test.txt
+          export DISPLAY=:99
+          pytest -m smoke
+
+  rollback:
+    if: failure()
+    needs: deploy-production
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Ansible
+        run: pip install ansible
+      - name: Rollback deployment
+        env:
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        run: |
+          echo "${ANSIBLE_VAULT_PASSWORD}" > /tmp/vault-pass
+          ansible-playbook -i ansible/inventory/production/hosts.yml \
+            ansible/playbooks/gui_vm_full_deploy.yml \
+            -e "rollback=true" \
+            --vault-password-file /tmp/vault-pass
+      - name: Create alert issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'GUI VM production deployment failed — rollback executed',
+              body: `Deployment run ${context.runId} failed. Rollback triggered.\n\nCheck logs: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              labels: ['incident', 'production']
+            });

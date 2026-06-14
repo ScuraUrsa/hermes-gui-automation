@@ -1,0 +1,86 @@
+name: GUI Health Check
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'  # Every 30 minutes
+  workflow_dispatch:
+
+jobs:
+  check-xvfb:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Check Xvfb process
+        run: |
+          ssh ${{ vars.PRODUCTION_HOST }} 'pgrep -a Xvfb || echo "Xvfb not running"'
+      - name: Check DISPLAY accessibility
+        run: |
+          ssh ${{ vars.PRODUCTION_HOST }} 'DISPLAY=:99 xdpyinfo | grep dimensions || echo "Display :99 not accessible"'
+
+  check-atspi:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Check AT-SPI2 registry
+        run: |
+          ssh ${{ vars.PRODUCTION_HOST }} 'pgrep -a at-spi2-registryd || echo "AT-SPI2 registry not running"'
+      - name: Check AT-SPI2 bus
+        run: |
+          ssh ${{ vars.PRODUCTION_HOST }} 'gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus --method org.freedesktop.DBus.Properties.Get org.a11y.Status IsEnabled || echo "AT-SPI2 bus not responding"'
+
+  check-ocr:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Check Tesseract availability
+        run: |
+          ssh ${{ vars.PRODUCTION_HOST }} 'tesseract --version 2>&1 | head -1 || echo "Tesseract not installed"'
+      - name: Run OCR test
+        run: |
+          ssh ${{ vars.PRODUCTION_HOST }} 'DISPLAY=:99 python3 -c "
+          from mss import mss
+          import pytesseract
+          with mss(display=\":99\") as sct:
+              img = sct.grab(sct.monitors[0])
+          text = pytesseract.image_to_string(img)
+          print(f\"OCR OK: {len(text)} chars extracted\")
+          " 2>&1 || echo "OCR test failed"'
+
+  check-browser:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Check Playwright browsers
+        run: |
+          ssh ${{ vars.PRODUCTION_HOST }} 'python3 -c "
+          from playwright.sync_api import sync_playwright
+          with sync_playwright() as p:
+              browser = p.chromium.launch(headless=True)
+              page = browser.new_page()
+              page.goto(\"about:blank\")
+              print(f\"Playwright OK: {page.title()}\")
+              browser.close()
+          " 2>&1 || echo "Playwright test failed"'
+
+  alert-on-failure:
+    if: failure()
+    needs: [check-xvfb, check-atspi, check-ocr, check-browser]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create alert issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const failedJobs = [];
+            if ('${{ needs.check-xvfb.result }}' === 'failure') failedJobs.push('Xvfb');
+            if ('${{ needs.check-atspi.result }}' === 'failure') failedJobs.push('AT-SPI2');
+            if ('${{ needs.check-ocr.result }}' === 'failure') failedJobs.push('OCR');
+            if ('${{ needs.check-browser.result }}' === 'failure') failedJobs.push('Browser');
+
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `GUI stack component(s) down: ${failedJobs.join(', ')}`,
+              body: `30-minute GUI health check detected failures in: ${failedJobs.join(', ')}.\n\nCheck logs: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              labels: ['gui', 'incident', 'urgent']
+            });

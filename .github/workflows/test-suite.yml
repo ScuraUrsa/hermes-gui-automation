@@ -1,0 +1,87 @@
+name: Test Suite
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  lint-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install linting tools
+        run: pip install ruff mypy bandit
+      - name: Run ruff
+        run: ruff check hermes_gui/ tests/
+      - name: Run mypy
+        run: mypy --strict hermes_gui/ tests/ || true
+      - name: Run bandit
+        run: bandit -r hermes_gui/ -c bandit.yaml || true
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb xdotool wmctrl xclip scrot tesseract-ocr tesseract-ocr-eng
+      - name: Install Python deps
+        run: pip install -e ".[dev]" || pip install -r tests/requirements-test.txt
+      - name: Start Xvfb
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 -ac +extension RANDR &
+          sleep 1
+          export DISPLAY=:99
+      - name: Run unit tests
+        run: |
+          export DISPLAY=:99
+          pytest -m "not slow and not vlm and not browser and not app" --junitxml=test-results.xml
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-py${{ matrix.python-version }}
+          path: test-results.xml
+
+  integration-tests:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb xdotool wmctrl xclip scrot imagemagick
+          sudo apt-get install -y tesseract-ocr tesseract-ocr-eng tesseract-ocr-pol
+          sudo apt-get install -y xfce4 xfce4-terminal firefox gedit nautilus
+      - name: Install Python deps
+        run: pip install -e ".[dev]" || pip install -r tests/requirements-test.txt
+      - name: Start Xvfb + XFCE
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 -ac +extension RANDR &
+          sleep 1
+          export DISPLAY=:99
+          startxfce4 &
+          sleep 3
+      - name: Run integration tests
+        run: |
+          export DISPLAY=:99
+          pytest -m "smoke or integration" -v

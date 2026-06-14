@@ -1,0 +1,37 @@
+name: Deploy Staging
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+
+jobs:
+  deploy-staging:
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Ansible
+        run: pip install ansible ansible-lint
+      - name: Install collections
+        run: ansible-galaxy collection install -r ansible/requirements.yml
+      - name: Deploy to staging
+        env:
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        run: |
+          echo "${ANSIBLE_VAULT_PASSWORD}" > /tmp/vault-pass
+          ansible-playbook -i ansible/inventory/staging/hosts.yml \
+            ansible/playbooks/gui_vm_full_deploy.yml \
+            --vault-password-file /tmp/vault-pass
+      - name: Run smoke tests
+        run: |
+          pip install -r tests/requirements-test.txt
+          export DISPLAY=:99
+          pytest -m smoke --junitxml=staging-smoke.xml
+      - name: Post deployment status
+        if: always()
+        run: 'echo "Deployment status: ${{ job.status }}"'
