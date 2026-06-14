@@ -7,8 +7,7 @@ accessibility trees (GTK3/4, Qt5/6, LibreOffice, Firefox chrome).
 import time
 from typing import Optional
 
-from hermes_gui.config import config
-from hermes_gui.errors import BackendNotAvailable, ElementNotFound, GUIError
+from hermes_gui.errors import BackendNotAvailable
 from hermes_gui.types import BoundingBox, Element
 
 

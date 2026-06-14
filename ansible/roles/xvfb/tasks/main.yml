@@ -34,4 +34,5 @@
     path: /etc/environment
     line: "DISPLAY={{ display }}"
     create: true
+    mode: "0644"
   tags: [xvfb, env]

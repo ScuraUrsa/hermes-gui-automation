@@ -1,7 +1,6 @@
 """Hermes GUI Automation — keyboard input via xdotool."""
 
 import subprocess
-import time
 
 from hermes_gui.config import config
 from hermes_gui.errors import InputError

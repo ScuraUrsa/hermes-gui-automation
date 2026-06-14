@@ -19,7 +19,7 @@
     line: '    <property name="AT-SPI2" type="bool" value="true"/>'
     insertafter: '<property name="compat" type="empty">'
     create: false
-  ignore_errors: true
+  failed_when: false
   tags: [xfce, atspi]
 
 - name: Start AT-SPI2 registry daemon
@@ -28,8 +28,9 @@
     enabled: true
     state: started
     scope: user
+  become: true
   become_user: "{{ ansible_user }}"
   environment:
     DISPLAY: "{{ display }}"
-  ignore_errors: true
+  failed_when: false
   tags: [xfce, atspi]

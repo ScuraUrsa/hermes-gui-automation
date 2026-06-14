@@ -17,7 +17,7 @@ from hermes_gui.errors import (
     GUIError,
     TimeoutError,
 )
-from hermes_gui.types import BoundingBox, Element, Screenshot, TextBlock, Window
+from hermes_gui.types import Element, Screenshot, TextBlock, Window
 
 # Lazy imports for backends — loaded on first use
 _atspi_backend = None

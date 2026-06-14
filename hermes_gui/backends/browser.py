@@ -5,7 +5,7 @@ for browser content. Supports Chromium and Firefox in headless mode.
 """
 
 from hermes_gui.config import config
-from hermes_gui.errors import BackendNotAvailable, GUIError
+from hermes_gui.errors import BackendNotAvailable
 
 
 class BrowserBackend:
@@ -48,8 +48,8 @@ class BrowserBackend:
         self._ensure_browser()
         return self._page.accessibility.snapshot() or ""
 
-    def screenshot(self) -> "Screenshot":
-        self._ensure_browser()
+    def screenshot(self):
+        """Take a screenshot of the current browser page."""
         from hermes_gui.types import Screenshot
         from io import BytesIO
         from PIL import Image

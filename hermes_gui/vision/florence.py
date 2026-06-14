@@ -1,6 +1,5 @@
 """Hermes GUI Automation — Florence-2 VLM wrapper for UI element detection."""
 
-from typing import Optional
 
 from hermes_gui.config import config
 from hermes_gui.errors import VLMFailed

@@ -4,11 +4,9 @@ import pytest
 from hermes_gui.core import (
     gui_screenshot, gui_ocr, gui_find, gui_click, gui_type,
     gui_list_windows, gui_focus_window, gui_get_active_window,
-    gui_close_window, gui_copy, gui_paste, gui_get_clipboard,
-    gui_wait_for_text, gui_wait_for_window, gui_fill_form,
-    gui_launch, gui_hotkey, gui_press, gui_move, gui_drag,
+    gui_copy, gui_get_clipboard,
+    gui_wait_for_text, gui_wait_for_window, gui_hotkey, gui_press, gui_move, gui_drag,
     gui_double_click, gui_right_click, gui_find_by_prompt,
-    gui_browser_navigate, gui_browser_click, gui_browser_type, gui_browser_snapshot,
 )
 from hermes_gui.errors import ElementNotFound, ConcurrencyError, TimeoutError
 from hermes_gui.types import BoundingBox, Element, Screenshot, TextBlock, Window

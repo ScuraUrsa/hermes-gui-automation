@@ -1,5 +1,6 @@
 """Hermes GUI Automation — type definitions."""
 
+from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -75,7 +76,7 @@ class Window:
 @dataclass
 class Screenshot:
     """A captured screenshot with metadata."""
-    image: "Image" = None         # PIL Image object
+    image: "Image" = None  # PIL Image object (lazy import)  # noqa: F821
     width: int = 0
     height: int = 0
     timestamp: float = 0.0

@@ -8,7 +8,7 @@ from hermes_gui.config import config
 
 
 def log_screenshot(
-    screenshot: "Screenshot",
+    screenshot,
     operation: str,
     prefix: str = "op",
 ) -> Optional[str]:

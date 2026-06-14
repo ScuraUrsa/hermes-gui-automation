@@ -1,7 +1,6 @@
 """Tests for hermes_gui backends."""
 
 import pytest
-from hermes_gui.errors import BackendNotAvailable
 
 
 class TestATSPIBackend:

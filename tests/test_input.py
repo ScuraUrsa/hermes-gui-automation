@@ -1,7 +1,6 @@
 """Tests for hermes_gui input layer (mouse, keyboard, clipboard)."""
 
 import pytest
-from hermes_gui.errors import InputError
 
 
 class TestMouse:

@@ -1,8 +1,7 @@
 """Tests for hermes_gui OCR layer (Tesseract)."""
 
 import pytest
-from hermes_gui.errors import OCRFailed
-from hermes_gui.types import Screenshot, TextBlock
+from hermes_gui.types import TextBlock
 
 
 class TestTesseractOCR:

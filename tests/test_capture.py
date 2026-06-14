@@ -1,8 +1,8 @@
 """Tests for hermes_gui capture layer (screenshot, window management)."""
 
 import pytest
-from hermes_gui.errors import DisplayError, WindowNotFound
-from hermes_gui.types import BoundingBox, Screenshot, Window
+from hermes_gui.errors import WindowNotFound
+from hermes_gui.types import Screenshot, Window
 
 
 class TestScreenshot:

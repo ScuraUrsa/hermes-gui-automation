@@ -9,5 +9,5 @@
       print('OmniParser model downloaded')
       "
     creates: /opt/models/omniparser/config.json
+  failed_when: false
   tags: [omniparser, model]
-  ignore_errors: true

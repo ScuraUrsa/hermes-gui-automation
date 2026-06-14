@@ -6,9 +6,10 @@
   tags: [playwright, install]
 
 - name: Install Playwright browsers
-  ansible.builtin.shell:
+  ansible.builtin.command:
     cmd: "playwright install {{ item }}"
     creates: "/home/{{ ansible_user }}/.cache/ms-playwright/{{ item }}-*/chrome"
-  loop: "{{ playwright_browsers }}"
+  become: true
   become_user: "{{ ansible_user }}"
+  loop: "{{ playwright_browsers }}"
   tags: [playwright, browsers]

@@ -5,7 +5,6 @@ by natural language description. Handles ambiguous cases where AT-SPI2
 and OCR cannot resolve the target.
 """
 
-import time
 from typing import Optional
 
 from hermes_gui.config import config
@@ -61,7 +60,6 @@ class VLMBackend:
             Element with position and description
         """
         self._load_florence()
-        deadline = time.time() + timeout
 
         from hermes_gui.capture.screen import capture_screenshot
         screenshot = capture_screenshot()

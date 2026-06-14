@@ -23,7 +23,6 @@ def match_template(
     """
     try:
         import cv2
-        import numpy as np
     except ImportError:
         raise ElementNotFound(template_path, ["visual"])
 
@@ -62,7 +61,6 @@ def match_all_templates(
     """
     try:
         import cv2
-        import numpy as np
     except ImportError:
         return []
 

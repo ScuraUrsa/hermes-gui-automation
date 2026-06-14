@@ -1,8 +1,5 @@
 """Hermes GUI Automation — Tesseract OCR wrapper."""
 
-import subprocess
-import tempfile
-import os
 
 from hermes_gui.config import config
 from hermes_gui.errors import OCRFailed
