@@ -1,0 +1,6 @@
+---
+- name: Install test applications
+  hosts: all
+  become: true
+  roles:
+    - gui_apps

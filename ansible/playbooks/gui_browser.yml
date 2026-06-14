@@ -1,0 +1,6 @@
+---
+- name: Install Playwright browsers
+  hosts: all
+  become: true
+  roles:
+    - playwright

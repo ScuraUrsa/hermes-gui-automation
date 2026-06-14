@@ -1,0 +1,7 @@
+---
+- name: Install VLM models
+  hosts: all
+  become: true
+  roles:
+    - florence
+    - omniparser

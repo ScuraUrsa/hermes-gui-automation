@@ -1,0 +1,6 @@
+---
+- name: Install GUI test applications
+  ansible.builtin.apt:
+    name: "{{ gui_apps }}"
+    state: present
+  tags: [apps, install]

@@ -1,0 +1,53 @@
+---
+# Master Playbook — Full GUI Automation VM Deployment
+- name: Deploy complete GUI Automation VM
+  hosts: all
+  gather_facts: true
+  become: true
+
+  pre_tasks:
+    - name: Verify target is Ubuntu 24.04
+      ansible.builtin.fail:
+        msg: "This playbook targets Ubuntu 24.04 LTS. Detected: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+      when: ansible_distribution != 'Ubuntu' or ansible_distribution_version != '24.04'
+
+  roles:
+    - role: xvfb
+      tags: [xvfb, display]
+    - role: xfce
+      tags: [xfce, desktop]
+    - role: gui_tools
+      tags: [tools, xdotool, wmctrl, xclip]
+    - role: tesseract
+      tags: [ocr, tesseract]
+    - role: easyocr
+      tags: [ocr, easyocr]
+    - role: florence
+      tags: [vlm, florence]
+    - role: omniparser
+      tags: [vlm, omniparser]
+    - role: playwright
+      tags: [browser, playwright]
+    - role: gui_apps
+      tags: [apps, firefox, libreoffice]
+    - role: hermes_gui
+      tags: [hermes, skill]
+    - role: gui_health
+      tags: [health, monitoring]
+
+  post_tasks:
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg:
+          - "============================================"
+          - "GUI Automation VM deployment complete!"
+          - "Display: {{ display }}"
+          - "Resolution: {{ xvfb_resolution }}"
+          - "Tools: xdotool, wmctrl, xclip, scrot, ImageMagick"
+          - "OCR: Tesseract 5 ({{ tesseract_languages | join(', ') }})"
+          - "VLM: {{ florence_model }}"
+          - "Browser: Playwright ({{ playwright_browsers | join(', ') }})"
+          - "Apps: {{ gui_apps | join(', ') }}"
+          - "Hermes skill: {{ hermes_gui_skill_path }}"
+          - "============================================"
+      tags: [always]

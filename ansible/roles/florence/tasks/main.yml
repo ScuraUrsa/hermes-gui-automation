@@ -1,0 +1,23 @@
+---
+- name: Install PyTorch and Transformers
+  ansible.builtin.pip:
+    name:
+      - torch
+      - transformers
+      - Pillow
+    state: present
+  tags: [florence, deps]
+
+- name: Download Florence-2 model
+  ansible.builtin.shell:
+    cmd: |
+      python3 -c "
+      from transformers import AutoProcessor, AutoModelForCausalLM
+      model = AutoModelForCausalLM.from_pretrained('{{ florence_model }}', trust_remote_code=True)
+      model.save_pretrained('/opt/models/florence-2')
+      processor = AutoProcessor.from_pretrained('{{ florence_model }}', trust_remote_code=True)
+      processor.save_pretrained('/opt/models/florence-2')
+      print('Florence-2 model downloaded')
+      "
+    creates: /opt/models/florence-2/config.json
+  tags: [florence, model]

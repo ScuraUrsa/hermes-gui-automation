@@ -1,0 +1,14 @@
+---
+- name: Install Playwright Python package
+  ansible.builtin.pip:
+    name: playwright
+    state: present
+  tags: [playwright, install]
+
+- name: Install Playwright browsers
+  ansible.builtin.shell:
+    cmd: "playwright install {{ item }}"
+    creates: "/home/{{ ansible_user }}/.cache/ms-playwright/{{ item }}-*/chrome"
+  loop: "{{ playwright_browsers }}"
+  become_user: "{{ ansible_user }}"
+  tags: [playwright, browsers]

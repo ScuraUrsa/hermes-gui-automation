@@ -1,0 +1,7 @@
+---
+- name: Deploy Xvfb + XFCE desktop
+  hosts: all
+  become: true
+  roles:
+    - xvfb
+    - xfce

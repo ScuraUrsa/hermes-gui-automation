@@ -1,0 +1,54 @@
+---
+# Display
+display: ":99"
+xvfb_resolution: "1920x1080x24"
+xvfb_screen: 0
+
+# GUI Tools
+gui_tools:
+  - xdotool
+  - wmctrl
+  - xclip
+  - scrot
+  - imagemagick
+
+# OCR
+tesseract_languages:
+  - eng
+  - pol
+  - deu
+  - fra
+  - spa
+
+# VLM Models
+florence_model: "microsoft/Florence-2-base"
+florence_device: "cpu"
+omniparser_model: "microsoft/OmniParser"
+omniparser_device: "cpu"
+
+# Browser
+playwright_browsers:
+  - chromium
+  - firefox
+browser_headless: true
+
+# Applications
+gui_apps:
+  - firefox
+  - libreoffice-writer
+  - gedit
+  - nautilus
+  - gnome-terminal
+  - gnome-calculator
+  - evince
+
+# Hermes
+hermes_gui_skill_path: "~/.hermes/skills/gui-automation"
+gui_screenshot_dir: "/tmp/hermes-gui"
+gui_screenshot_log_enabled: true
+
+# Timeouts
+gui_default_timeout: 30
+gui_click_timeout: 10
+gui_type_interval: 0.01
+gui_wait_timeout: 30

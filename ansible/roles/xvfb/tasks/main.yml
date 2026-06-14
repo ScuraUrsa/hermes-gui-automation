@@ -1,0 +1,37 @@
+---
+- name: Install Xvfb
+  ansible.builtin.apt:
+    name: xvfb
+    state: present
+  tags: [xvfb, install]
+
+- name: Create xvfb system user
+  ansible.builtin.user:
+    name: xvfb
+    system: true
+    create_home: false
+    shell: /usr/sbin/nologin
+  tags: [xvfb, user]
+
+- name: Deploy Xvfb systemd service
+  ansible.builtin.template:
+    src: xvfb.service.j2
+    dest: /etc/systemd/system/xvfb.service
+    mode: "0644"
+  notify: restart xvfb
+  tags: [xvfb, config]
+
+- name: Enable and start Xvfb
+  ansible.builtin.systemd:
+    name: xvfb
+    enabled: true
+    state: started
+    daemon_reload: true
+  tags: [xvfb, service]
+
+- name: Set DISPLAY environment variable
+  ansible.builtin.lineinfile:
+    path: /etc/environment
+    line: "DISPLAY={{ display }}"
+    create: true
+  tags: [xvfb, env]

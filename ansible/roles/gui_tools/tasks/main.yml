@@ -1,0 +1,12 @@
+---
+- name: Install GUI automation tools
+  ansible.builtin.apt:
+    name: "{{ gui_tools }}"
+    state: present
+  tags: [tools, install]
+
+- name: Install Python MSS
+  ansible.builtin.pip:
+    name: mss
+    state: present
+  tags: [tools, python]

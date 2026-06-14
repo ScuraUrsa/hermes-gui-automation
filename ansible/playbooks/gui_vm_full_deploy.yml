@@ -1,0 +1,17 @@
+---
+# Full GUI VM deployment — all-in-one
+- name: Deploy complete GUI Automation VM
+  hosts: all
+  become: true
+  roles:
+    - xvfb
+    - xfce
+    - gui_tools
+    - tesseract
+    - easyocr
+    - florence
+    - omniparser
+    - playwright
+    - gui_apps
+    - hermes_gui
+    - gui_health

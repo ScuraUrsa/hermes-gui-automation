@@ -1,0 +1,6 @@
+---
+- name: Deploy GUI health checks
+  hosts: all
+  become: true
+  roles:
+    - gui_health

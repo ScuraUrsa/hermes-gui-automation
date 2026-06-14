@@ -1,0 +1,6 @@
+---
+- name: Install GUI automation tools
+  hosts: all
+  become: true
+  roles:
+    - gui_tools

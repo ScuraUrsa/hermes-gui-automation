@@ -1,0 +1,12 @@
+[Unit]
+Description=X Virtual Framebuffer
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/Xvfb {{ display }} -screen {{ xvfb_screen }} {{ xvfb_resolution }} -ac +extension RANDR
+Restart=always
+User=xvfb
+Environment=DISPLAY={{ display }}
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,6 @@
+---
+- name: Deploy hermes_gui library and skill
+  hosts: all
+  become: true
+  roles:
+    - hermes_gui

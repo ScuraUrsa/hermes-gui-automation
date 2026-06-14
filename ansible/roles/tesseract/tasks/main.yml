@@ -1,0 +1,19 @@
+---
+- name: Install Tesseract OCR
+  ansible.builtin.apt:
+    name: tesseract-ocr
+    state: present
+  tags: [tesseract, install]
+
+- name: Install Tesseract language packs
+  ansible.builtin.apt:
+    name: "tesseract-ocr-{{ item }}"
+    state: present
+  loop: "{{ tesseract_languages }}"
+  tags: [tesseract, languages]
+
+- name: Install pytesseract Python package
+  ansible.builtin.pip:
+    name: pytesseract
+    state: present
+  tags: [tesseract, python]

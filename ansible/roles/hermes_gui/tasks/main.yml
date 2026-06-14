@@ -1,0 +1,21 @@
+---
+- name: Install hermes_gui Python package
+  ansible.builtin.pip:
+    name: "{{ playbook_dir }}/../.."
+    state: present
+    editable: true
+  tags: [hermes, install]
+
+- name: Deploy gui-automation skill
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../../skills/gui-automation/"
+    dest: "{{ hermes_gui_skill_path }}/"
+    mode: "0644"
+  tags: [hermes, skill]
+
+- name: Set DISPLAY in Hermes environment
+  ansible.builtin.lineinfile:
+    path: "~/.hermes/.env"
+    line: "DISPLAY={{ display }}"
+    create: true
+  tags: [hermes, env]

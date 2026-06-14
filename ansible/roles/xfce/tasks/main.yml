@@ -1,0 +1,35 @@
+---
+- name: Install XFCE desktop
+  ansible.builtin.apt:
+    name:
+      - xfce4
+      - xfce4-terminal
+      - xfce4-panel
+      - xfce4-session
+      - xfwm4
+      - xfdesktop4
+      - dbus-x11
+      - at-spi2-core
+    state: present
+  tags: [xfce, install]
+
+- name: Enable AT-SPI2 accessibility bus
+  ansible.builtin.lineinfile:
+    path: /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-session.xml
+    line: '    <property name="AT-SPI2" type="bool" value="true"/>'
+    insertafter: '<property name="compat" type="empty">'
+    create: false
+  ignore_errors: true
+  tags: [xfce, atspi]
+
+- name: Start AT-SPI2 registry daemon
+  ansible.builtin.systemd:
+    name: at-spi2-registryd
+    enabled: true
+    state: started
+    scope: user
+  become_user: "{{ ansible_user }}"
+  environment:
+    DISPLAY: "{{ display }}"
+  ignore_errors: true
+  tags: [xfce, atspi]

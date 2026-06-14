@@ -1,0 +1,13 @@
+---
+- name: Download OmniParser model
+  ansible.builtin.shell:
+    cmd: |
+      python3 -c "
+      from transformers import AutoProcessor, AutoModelForCausalLM
+      model = AutoModelForCausalLM.from_pretrained('{{ omniparser_model }}', trust_remote_code=True)
+      model.save_pretrained('/opt/models/omniparser')
+      print('OmniParser model downloaded')
+      "
+    creates: /opt/models/omniparser/config.json
+  tags: [omniparser, model]
+  ignore_errors: true

@@ -1,0 +1,23 @@
+---
+- name: Create health check script
+  ansible.builtin.copy:
+    content: |
+      #!/bin/bash
+      # GUI Automation Health Check
+      export DISPLAY={{ display }}
+      echo "=== GUI Health Check: $(date) ==="
+      pgrep -a Xvfb || echo "FAIL: Xvfb not running"
+      xdpyinfo | grep dimensions || echo "FAIL: Display not accessible"
+      xdotool getmouselocation || echo "FAIL: xdotool not working"
+      tesseract --version 2>&1 | head -1 || echo "FAIL: Tesseract not installed"
+      echo "=== Health check complete ==="
+    dest: /usr/local/bin/gui-health-check
+    mode: "0755"
+  tags: [health, script]
+
+- name: Create health check cron job
+  ansible.builtin.cron:
+    name: "GUI automation health check"
+    minute: "*/30"
+    job: "/usr/local/bin/gui-health-check 2>&1 | logger -t gui-health"
+  tags: [health, cron]

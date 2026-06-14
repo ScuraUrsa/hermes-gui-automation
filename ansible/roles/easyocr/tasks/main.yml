@@ -1,0 +1,6 @@
+---
+- name: Install EasyOCR
+  ansible.builtin.pip:
+    name: easyocr
+    state: present
+  tags: [easyocr, install]

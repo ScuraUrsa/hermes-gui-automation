@@ -1,0 +1,7 @@
+---
+- name: Install OCR engines
+  hosts: all
+  become: true
+  roles:
+    - tesseract
+    - easyocr
