@@ -1,0 +1,69 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+eggs/
+*.egg
+.eggs/
+venv/
+.venv/
+env/
+.env
+*.whl
+
+# Ansible
+*.retry
+ansible/vault-password.txt
+ansible/.vault_pass
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Secrets & credentials
+*.pem
+*.key
+*.crt
+credentials.yml
+secrets.yml
+vault.yml
+
+# Models (large files)
+*.bin
+*.safetensors
+*.onnx
+*.pt
+*.pth
+models/
+
+# Screenshots (test artifacts)
+/tmp/hermes-gui/
+screenshots/
+
+# Logs
+*.log
+logs/
+
+# OS
+Thumbs.db
+desktop.ini
+
+# Test artifacts
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+*.junit.xml
+test-results/
+
+# Misc
+*.tmp
+*.temp
