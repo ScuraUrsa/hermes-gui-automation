@@ -29,7 +29,7 @@ def ocr_screenshot(screenshot: Screenshot, language: str = "eng") -> list[TextBl
             config=f'--tessdata-dir "{config.tesseract_data_dir}"',
         )
     except Exception as e:
-        raise OCRFailed("tesseract", str(e))
+        raise OCRFailed("tesseract", str(e)) from e
 
     blocks = []
     for i in range(len(data["text"])):

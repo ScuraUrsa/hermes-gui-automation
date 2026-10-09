@@ -18,7 +18,7 @@ def find_by_prompt(prompt: str, screenshot: Screenshot, timeout: float = 15.0) -
         Element with position and description
     """
     try:
-        from transformers import AutoProcessor, AutoModelForCausalLM
+        from transformers import AutoModelForCausalLM, AutoProcessor
     except ImportError:
         raise VLMFailed("florence-2", "transformers not installed. pip install transformers torch")
 
@@ -73,4 +73,4 @@ def find_by_prompt(prompt: str, screenshot: Screenshot, timeout: float = 15.0) -
         )
 
     except Exception as e:
-        raise VLMFailed(config.florence_model, str(e))
+        raise VLMFailed(config.florence_model, str(e)) from e

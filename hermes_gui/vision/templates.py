@@ -1,6 +1,5 @@
 """Hermes GUI Automation — OpenCV template matching for UI elements."""
 
-from typing import Optional
 
 from hermes_gui.errors import ElementNotFound
 from hermes_gui.types import BoundingBox, Element, Screenshot
@@ -10,7 +9,7 @@ def match_template(
     template_path: str,
     screenshot: Screenshot,
     threshold: float = 0.8,
-) -> Optional[Element]:
+) -> Element | None:
     """Find a UI element by image template matching.
 
     Args:

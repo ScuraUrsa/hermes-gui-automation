@@ -1,7 +1,6 @@
 """Hermes GUI Automation — screenshot capture via Python MSS."""
 
 import time
-from typing import Optional
 
 from hermes_gui.config import config
 from hermes_gui.errors import DisplayError
@@ -9,8 +8,8 @@ from hermes_gui.types import BoundingBox, Screenshot
 
 
 def capture_screenshot(
-    region: Optional[tuple[int, int, int, int]] = None,
-    window_title: Optional[str] = None,
+    region: tuple[int, int, int, int] | None = None,
+    window_title: str | None = None,
 ) -> Screenshot:
     """Capture full screen, a region, or a specific window.
 

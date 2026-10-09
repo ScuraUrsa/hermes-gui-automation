@@ -1,6 +1,7 @@
 """Tests for hermes_gui OCR layer (Tesseract)."""
 
 import pytest
+
 from hermes_gui.types import TextBlock
 
 

@@ -9,7 +9,7 @@ jobs:
   check-model-updates:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Check for new Florence-2 releases
         run: |
           echo "Checking Florence-2 model updates..."
@@ -33,9 +33,9 @@ jobs:
     needs: check-model-updates
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - name: Install system deps
@@ -43,7 +43,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y xvfb tesseract-ocr tesseract-ocr-eng
       - name: Install Python deps
-        run: pip install transformers torch Pillow mss pytesseract pytest
+        # Florence-2 is loaded with trust_remote_code. Its remote modeling code
+        # breaks on newer transformers ('Florence2LanguageConfig' object has no
+        # attribute 'forced_bos_token_id' / missing '_supports_sdpa'), so pin
+        # the last release it works with. einops and timm are imported by the
+        # remote modeling code.
+        run: pip install transformers==4.49.0 torch einops timm Pillow mss pytesseract pytest
       - name: Start Xvfb
         run: |
           Xvfb :99 -screen 0 1920x1080x24 -ac +extension RANDR &

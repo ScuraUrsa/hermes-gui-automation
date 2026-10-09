@@ -1,14 +1,35 @@
 """Tests for hermes_gui core orchestration."""
 
 import pytest
+
 from hermes_gui.core import (
-    gui_screenshot, gui_ocr, gui_find, gui_click, gui_type,
-    gui_list_windows, gui_focus_window, gui_get_active_window,
-    gui_copy, gui_get_clipboard,
-    gui_wait_for_text, gui_wait_for_window, gui_hotkey, gui_press, gui_move, gui_drag,
-    gui_double_click, gui_right_click, gui_find_by_prompt,
+    gui_click,
+    gui_copy,
+    gui_double_click,
+    gui_drag,
+    gui_find,
+    gui_find_by_prompt,
+    gui_focus_window,
+    gui_get_active_window,
+    gui_get_clipboard,
+    gui_hotkey,
+    gui_list_windows,
+    gui_move,
+    gui_ocr,
+    gui_press,
+    gui_right_click,
+    gui_screenshot,
+    gui_type,
+    gui_wait_for_text,
+    gui_wait_for_window,
 )
-from hermes_gui.errors import ElementNotFound, ConcurrencyError, TimeoutError
+from hermes_gui.errors import (
+    ConcurrencyError,
+    ElementNotFound,
+    GUIError,
+    TimeoutError,
+    WindowNotFound,
+)
 from hermes_gui.types import BoundingBox, Element, Screenshot, TextBlock, Window
 
 
@@ -63,7 +84,7 @@ class TestElementFinding:
             gui_find("XYZZY_NONEXISTENT_TEXT_12345", timeout=2.0)
 
     def test_find_by_prompt(self, display):
-        with pytest.raises(Exception):  # VLM may not be installed
+        with pytest.raises(GUIError):  # VLM may not be installed
             gui_find_by_prompt("a button", timeout=2.0)
 
 
@@ -107,19 +128,22 @@ class TestWindowManagement:
     """Window management tests."""
 
     @pytest.mark.smoke
-    def test_list_windows(self, display):
+    def test_list_windows(self, display, test_window):
         windows = gui_list_windows()
         assert isinstance(windows, list)
         for w in windows:
             assert isinstance(w, Window)
             assert isinstance(w.title, str)
+        assert any(w.title == test_window for w in windows)
 
-    def test_get_active_window(self, display):
+    def test_get_active_window(self, display, test_window):
+        gui_focus_window(test_window)
         window = gui_get_active_window()
         assert isinstance(window, Window)
+        assert window.title == test_window
 
     def test_focus_nonexistent_window(self, display):
-        with pytest.raises(Exception):
+        with pytest.raises(WindowNotFound):
             gui_focus_window("XYZZY_NONEXISTENT_WINDOW_12345")
 
 
@@ -146,6 +170,7 @@ class TestWaitConditions:
         with pytest.raises(TimeoutError):
             gui_wait_for_text("XYZZY_NONEXISTENT_12345", timeout=2.0)
 
+    @pytest.mark.usefixtures("window_manager")
     def test_wait_for_window_timeout(self, display):
         with pytest.raises(TimeoutError):
             gui_wait_for_window("XYZZY_NONEXISTENT_WINDOW_12345", timeout=2.0)
