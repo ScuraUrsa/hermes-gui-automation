@@ -1,0 +1,54 @@
+name: hermes-teach
+
+on:
+  push:
+    paths: ['teach/**', '.github/workflows/teach.yml']
+  pull_request:
+    paths: ['teach/**', '.github/workflows/teach.yml']
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: teach
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: System packages (X11 test desktop)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb openbox xdotool x11-utils python3-tk
+      - name: Install
+        run: |
+          pip install -e ".[dev]"
+          python -m playwright install --with-deps chromium
+      - name: Lint
+        run: ruff check .
+      - name: Tests (unit + Xvfb desktop E2E + browser E2E)
+        run: |
+          Xvfb :99 -screen 0 1280x800x24 -ac +extension RECORD &
+          sleep 1
+          DISPLAY=:99 openbox &
+          sleep 1
+          DISPLAY=:99 pytest -v
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install AutoIt
+        run: choco install autoit -y --no-progress
+      - name: Install
+        run: |
+          pip install -e ".[dev]"
+          python -m playwright install chromium
+      - name: Tests (unit + desktop E2E with AutoIt + browser E2E)
+        run: pytest -v -rs

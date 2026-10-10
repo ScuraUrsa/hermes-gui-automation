@@ -11,6 +11,13 @@ Enables Hermes Agent to **see the screen, read text, identify UI elements, click
 - **GitHub Actions CI/CD** — 5 workflows: continuous testing, staging/production deployment, model updates, health checks
 - **Ansible Playbooks** — 10 roles, 9 playbooks provisioning a complete headless GUI VM from bare metal
 
+## hermes-teach: learn procedures by watching the user
+
+[`teach/`](teach/README.md) records what the user does on **Windows or Linux** (clicks, typed text,
+shortcuts, browser actions), turns it into a parameterized skill with conditions and Bitwarden
+logins, replays it, tracks acceptance metrics and compiles proven procedures to
+Playwright / AutoIt / xdotool scripts. Design and platform comparison: [teach/docs/design.md](teach/docs/design.md).
+
 ## Architecture
 
 ```

@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hermes-teach"
+version = "0.1.0"
+description = "Record user actions on Windows/Linux, turn them into parameterized skills, replay, measure, promote to scripts"
+requires-python = ">=3.10"
+dependencies = ["pyyaml>=6", "pynput>=1.7.6"]
+
+[project.optional-dependencies]
+browser = ["playwright>=1.45"]
+llm = ["anthropic"]
+screenshots = ["mss>=9"]
+windows = ["uiautomation>=2.0.18; sys_platform == 'win32'"]
+dev = ["pytest>=8", "ruff", "mss>=9", "playwright>=1.45"]
+
+[project.scripts]
+hermes-teach = "hermes_teach.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["hermes_teach*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "e2e: drives a real display (Xvfb on Linux, the desktop on Windows)",
+    "browser: needs Playwright Chromium",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B"]

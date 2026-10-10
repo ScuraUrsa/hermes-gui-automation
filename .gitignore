@@ -67,3 +67,6 @@ test-results/
 # Misc
 *.tmp
 *.temp
+
+# hermes-teach local data
+teach/**/*.jsonl
