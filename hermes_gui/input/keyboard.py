@@ -10,7 +10,7 @@ def _xdotool(*args: str) -> None:
     try:
         result = subprocess.run(
             ["xdotool"] + list(args),
-            capture_output=True, text=True, timeout=5,
+            check=False, capture_output=True, text=True, timeout=5,
             env={"DISPLAY": config.display},
         )
         if result.returncode != 0:

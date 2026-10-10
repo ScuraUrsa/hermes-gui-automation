@@ -1,7 +1,6 @@
 """Hermes GUI Automation — window management via wmctrl + xdotool."""
 
 import subprocess
-from typing import Optional
 
 from hermes_gui.config import config
 from hermes_gui.errors import InputError, WindowNotFound
@@ -12,7 +11,7 @@ def _wmctrl(*args: str) -> str:
     try:
         result = subprocess.run(
             ["wmctrl"] + list(args),
-            capture_output=True, text=True, timeout=5,
+            check=False, capture_output=True, text=True, timeout=5,
             env={"DISPLAY": config.display},
         )
         if result.returncode != 0:
@@ -26,7 +25,7 @@ def _xdotool(*args: str) -> str:
     try:
         result = subprocess.run(
             ["xdotool"] + list(args),
-            capture_output=True, text=True, timeout=5,
+            check=False, capture_output=True, text=True, timeout=5,
             env={"DISPLAY": config.display},
         )
         if result.returncode != 0:
@@ -38,12 +37,13 @@ def _xdotool(*args: str) -> str:
 
 def list_windows() -> list[Window]:
     """List all open windows."""
+    # Columns: id desktop pid x y width height wm_class client_host title
     out = _wmctrl("-l", "-p", "-G", "-x")
     windows = []
     for line in out.splitlines():
         if not line.strip():
             continue
-        parts = line.split(None, 8)
+        parts = line.split(None, 9)
         if len(parts) < 8:
             continue
         try:
@@ -56,14 +56,14 @@ def list_windows() -> list[Window]:
                 width=int(parts[5]),
                 height=int(parts[6]),
                 class_name=parts[7],
-                title=parts[8] if len(parts) > 8 else "",
+                title=parts[9] if len(parts) > 9 else "",
             ))
         except (ValueError, IndexError):
             continue
     return windows
 
 
-def focus_window(title: Optional[str] = None, pid: Optional[int] = None) -> Window:
+def focus_window(title: str | None = None, pid: int | None = None) -> Window:
     """Focus a window by title substring or PID."""
     windows = list_windows()
     for w in windows:
@@ -80,10 +80,14 @@ def focus_window(title: Optional[str] = None, pid: Optional[int] = None) -> Wind
 
 def get_active_window() -> Window:
     """Get the currently active window."""
-    wid = _xdotool("getactivewindow")
+    try:
+        # xdotool prints a decimal window id; wmctrl lists them in hex.
+        active_id = int(_xdotool("getactivewindow"))
+    except (InputError, ValueError):
+        raise WindowNotFound("active")
     windows = list_windows()
     for w in windows:
-        if w.id == wid:
+        if int(w.id, 16) == active_id:
             w.is_active = True
             return w
     raise WindowNotFound("active")

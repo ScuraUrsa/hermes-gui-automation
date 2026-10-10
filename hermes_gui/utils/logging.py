@@ -2,7 +2,6 @@
 
 import os
 import time
-from typing import Optional
 
 from hermes_gui.config import config
 
@@ -11,7 +10,7 @@ def log_screenshot(
     screenshot,
     operation: str,
     prefix: str = "op",
-) -> Optional[str]:
+) -> str | None:
     """Save a screenshot to the log directory for debugging.
 
     Args:

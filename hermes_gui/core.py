@@ -7,7 +7,6 @@ screenshot logging.
 
 import threading
 import time
-from typing import Optional
 
 from hermes_gui.config import config
 from hermes_gui.errors import (
@@ -27,7 +26,7 @@ _browser_backend = None
 
 # Concurrency lock
 _lock = threading.Lock()
-_current_operation: Optional[str] = None
+_current_operation: str | None = None
 
 
 def _acquire_lock(operation: str, timeout: float = 30.0) -> bool:
@@ -83,8 +82,8 @@ def _get_backend(name: str):
 # ============================================================
 
 def gui_screenshot(
-    region: Optional[tuple[int, int, int, int]] = None,
-    window_title: Optional[str] = None,
+    region: tuple[int, int, int, int] | None = None,
+    window_title: str | None = None,
 ) -> Screenshot:
     """Capture full screen, a region (x,y,w,h), or a specific window.
 
@@ -104,8 +103,8 @@ def gui_screenshot(
 # ============================================================
 
 def gui_ocr(
-    screenshot: Optional[Screenshot] = None,
-    region: Optional[tuple[int, int, int, int]] = None,
+    screenshot: Screenshot | None = None,
+    region: tuple[int, int, int, int] | None = None,
     language: str = "eng",
 ) -> list[TextBlock]:
     """Extract all text from a screenshot or region.
@@ -131,7 +130,7 @@ def gui_ocr(
 def gui_find(
     text: str,
     timeout: float = 10.0,
-    prefer_backend: Optional[str] = None,
+    prefer_backend: str | None = None,
 ) -> Element:
     """Find a UI element by its visible text label.
 
@@ -149,7 +148,9 @@ def gui_find(
     Raises:
         ElementNotFound: If no backend can find the element.
     """
-    _acquire_lock(f"find:{text}")
+    # Wait for a concurrent operation at most as long as the caller is
+    # willing to wait for the element itself.
+    _acquire_lock(f"find:{text}", timeout=timeout)
     try:
         backends_tried: list[str] = []
 
@@ -191,7 +192,7 @@ def gui_find_by_prompt(
     Returns:
         Element dataclass.
     """
-    _acquire_lock(f"find_by_prompt:{prompt[:50]}")
+    _acquire_lock(f"find_by_prompt:{prompt[:50]}", timeout=timeout)
     try:
         backend = _get_backend("vlm")
         element = backend.find_by_prompt(prompt, timeout=timeout)
@@ -206,9 +207,9 @@ def gui_find_by_prompt(
 # ============================================================
 
 def gui_click(
-    element: Optional[Element] = None,
-    x: Optional[int] = None,
-    y: Optional[int] = None,
+    element: Element | None = None,
+    x: int | None = None,
+    y: int | None = None,
     button: str = "left",
 ) -> None:
     """Click on an element (center) or at specific coordinates.
@@ -229,9 +230,9 @@ def gui_click(
 
 
 def gui_double_click(
-    element: Optional[Element] = None,
-    x: Optional[int] = None,
-    y: Optional[int] = None,
+    element: Element | None = None,
+    x: int | None = None,
+    y: int | None = None,
 ) -> None:
     """Double-click on an element or at coordinates."""
     from hermes_gui.input.mouse import double_click
@@ -245,9 +246,9 @@ def gui_double_click(
 
 
 def gui_right_click(
-    element: Optional[Element] = None,
-    x: Optional[int] = None,
-    y: Optional[int] = None,
+    element: Element | None = None,
+    x: int | None = None,
+    y: int | None = None,
 ) -> None:
     """Right-click on an element or at coordinates."""
     from hermes_gui.input.mouse import right_click
@@ -280,7 +281,7 @@ def gui_drag(
 # Public API — Keyboard Input
 # ============================================================
 
-def gui_type(text: str, interval: Optional[float] = None) -> None:
+def gui_type(text: str, interval: float | None = None) -> None:
     """Type text character by character.
 
     Args:
@@ -314,7 +315,7 @@ def gui_list_windows() -> list[Window]:
     return list_windows()
 
 
-def gui_focus_window(title: Optional[str] = None, pid: Optional[int] = None) -> Window:
+def gui_focus_window(title: str | None = None, pid: int | None = None) -> Window:
     """Focus a window by title substring or PID.
 
     Args:
@@ -417,7 +418,7 @@ def gui_wait_for_window(
 
 def gui_fill_form(
     fields: dict[str, str],
-    submit_button: Optional[str] = None,
+    submit_button: str | None = None,
 ) -> None:
     """Fill multiple form fields and optionally submit.
 

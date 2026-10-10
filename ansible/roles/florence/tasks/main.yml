@@ -3,7 +3,11 @@
   ansible.builtin.pip:
     name:
       - torch
-      - transformers
+      # Florence-2 remote code (trust_remote_code) breaks on transformers >= 4.50
+      - transformers>=4.38,<4.50
+      # imported by Florence-2's remote modeling code
+      - einops
+      - timm
       - Pillow
     state: present
   tags: [florence, deps]

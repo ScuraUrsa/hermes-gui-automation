@@ -1,6 +1,7 @@
 """Tests for hermes_gui capture layer (screenshot, window management)."""
 
 import pytest
+
 from hermes_gui.errors import WindowNotFound
 from hermes_gui.types import Screenshot, Window
 
@@ -29,22 +30,27 @@ class TestScreenshot:
         assert screenshot.timestamp > 0
 
 
+@pytest.mark.usefixtures("window_manager")
 class TestWindowManagement:
     """Window management tests."""
 
     @pytest.mark.smoke
-    def test_list_windows(self, display):
+    def test_list_windows(self, display, test_window):
         from hermes_gui.capture.window import list_windows
         windows = list_windows()
         assert isinstance(windows, list)
         for w in windows:
             assert isinstance(w, Window)
+        assert test_window in [w.title for w in windows]
 
     @pytest.mark.smoke
-    def test_get_active_window(self, display):
-        from hermes_gui.capture.window import get_active_window
+    def test_get_active_window(self, display, test_window):
+        from hermes_gui.capture.window import focus_window, get_active_window
+        focus_window(title=test_window)
         window = get_active_window()
         assert isinstance(window, Window)
+        assert window.title == test_window
+        assert window.is_active
 
     def test_focus_nonexistent(self, display):
         from hermes_gui.capture.window import focus_window

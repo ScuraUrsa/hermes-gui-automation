@@ -50,9 +50,11 @@ class BrowserBackend:
 
     def screenshot(self):
         """Take a screenshot of the current browser page."""
-        from hermes_gui.types import Screenshot
         from io import BytesIO
+
         from PIL import Image
+
+        from hermes_gui.types import Screenshot
         buf = self._page.screenshot()
         img = Image.open(BytesIO(buf))
         return Screenshot(image=img, width=img.width, height=img.height)

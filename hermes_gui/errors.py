@@ -3,7 +3,6 @@
 
 class GUIError(Exception):
     """Base exception for all GUI automation errors."""
-    pass
 
 
 class ElementNotFound(GUIError):
