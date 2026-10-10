@@ -30,6 +30,15 @@ pytestmark = [
 TITLE = "Hermes Demo Form"
 
 
+def _interactive_desktop() -> bool:
+    """False when the session has no usable input desktop (locked PC, screen off, service)."""
+    import ctypes
+    from ctypes import wintypes
+    pt = wintypes.POINT()
+    return bool(ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))) and bool(
+        ctypes.windll.user32.GetForegroundWindow())
+
+
 def autoit_exe():
     for cand in (shutil.which("AutoIt3_x64.exe"), shutil.which("AutoIt3.exe"),
                  r"C:\Program Files (x86)\AutoIt3\AutoIt3_x64.exe", r"C:\Program Files (x86)\AutoIt3\AutoIt3.exe",
@@ -63,6 +72,8 @@ def test_record_generalize_replay_autoit(tmp_path, examples, monkeypatch):
     from hermes_teach.recorder.desktop import DesktopRecorder
     from hermes_teach.runner import Runner
 
+    if not _interactive_desktop():
+        pytest.skip("no interactive desktop (locked screen?): input cannot be recorded or injected")
     kb, mouse = Kb(), Mouse()
     out1 = tmp_path / "recorded_run.json"
     app, lay = start_app(examples, out1, "+100+100", tmp_path)
