@@ -5,7 +5,6 @@ accessibility trees (GTK3/4, Qt5/6, LibreOffice, Firefox chrome).
 """
 
 import time
-from typing import Optional
 
 from hermes_gui.errors import BackendNotAvailable
 from hermes_gui.types import BoundingBox, Element
@@ -30,7 +29,7 @@ class ATSPIBackend:
                 "pyatspi2 not installed. Install: sudo apt-get install python3-pyatspi"
             )
 
-    def find_element(self, text: str, timeout: float = 10.0) -> Optional[Element]:
+    def find_element(self, text: str, timeout: float = 10.0) -> Element | None:
         """Find a UI element by its visible text/name using AT-SPI2."""
         self._check_available()
         deadline = time.time() + timeout
@@ -52,7 +51,7 @@ class ATSPIBackend:
 
         return None
 
-    def _search_widget(self, widget, text: str, depth: int = 0) -> Optional[Element]:
+    def _search_widget(self, widget, text: str, depth: int = 0) -> Element | None:
         """Recursively search widget tree for matching text."""
         if depth > 50:  # Prevent infinite recursion
             return None

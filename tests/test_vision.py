@@ -1,7 +1,8 @@
 """Tests for hermes_gui vision layer (Florence-2, template matching)."""
 
 import pytest
-from hermes_gui.errors import VLMFailed, ElementNotFound
+
+from hermes_gui.errors import ElementNotFound, VLMFailed
 
 
 class TestFlorenceVLM:
@@ -29,7 +30,7 @@ class TestTemplateMatching:
 
     @pytest.mark.smoke
     def test_import(self):
-        from hermes_gui.vision.templates import match_template, match_all_templates
+        from hermes_gui.vision.templates import match_all_templates, match_template
         assert match_template is not None
         assert match_all_templates is not None
 

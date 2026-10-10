@@ -5,7 +5,6 @@ by natural language description. Handles ambiguous cases where AT-SPI2
 and OCR cannot resolve the target.
 """
 
-from typing import Optional
 
 from hermes_gui.config import config
 from hermes_gui.errors import BackendNotAvailable, VLMFailed
@@ -20,7 +19,7 @@ class VLMBackend:
         self._florence_model = None
         self._florence_processor = None
         try:
-            from transformers import AutoProcessor, AutoModelForCausalLM
+            from transformers import AutoModelForCausalLM, AutoProcessor
             self._AutoProcessor = AutoProcessor
             self._AutoModelForCausalLM = AutoModelForCausalLM
             self._florence_available = True
@@ -43,9 +42,9 @@ class VLMBackend:
                 trust_remote_code=True,
             )
         except Exception as e:
-            raise VLMFailed(config.florence_model, str(e))
+            raise VLMFailed(config.florence_model, str(e)) from e
 
-    def find_element(self, text: str, timeout: float = 10.0) -> Optional[Element]:
+    def find_element(self, text: str, timeout: float = 10.0) -> Element | None:
         """Find element by text using VLM. Delegates to find_by_prompt."""
         return self.find_by_prompt(f"Find the UI element labeled '{text}'", timeout)
 
@@ -109,4 +108,4 @@ class VLMBackend:
             )
 
         except Exception as e:
-            raise VLMFailed(config.florence_model, str(e))
+            raise VLMFailed(config.florence_model, str(e)) from e

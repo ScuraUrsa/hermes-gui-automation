@@ -51,7 +51,7 @@ def wait_for_text_on_screen(
     Returns:
         TextBlock containing the found text.
     """
-    from hermes_gui.core import gui_screenshot, gui_ocr
+    from hermes_gui.core import gui_ocr, gui_screenshot
 
     def _check():
         screenshot = gui_screenshot()

@@ -5,7 +5,6 @@ on screen. Works with ANY application that displays visible text.
 """
 
 import time
-from typing import Optional
 
 from hermes_gui.config import config
 from hermes_gui.errors import BackendNotAvailable, ElementNotFound
@@ -35,7 +34,7 @@ class VisualBackend:
         if not self._ocr_available:
             raise BackendNotAvailable("visual", "Tesseract OCR not installed. Install: pip install pytesseract")
 
-    def find_element(self, text: str, timeout: float = 10.0) -> Optional[Element]:
+    def find_element(self, text: str, timeout: float = 10.0) -> Element | None:
         """Find a UI element by its visible text using OCR."""
         self._check_ocr()
         deadline = time.time() + timeout
@@ -51,7 +50,7 @@ class VisualBackend:
                     lang=config.tesseract_languages,
                     output_type=self._pytesseract.Output.DICT,
                 )
-            except Exception:
+            except Exception:  # noqa: BLE001 - pytesseract raises many error types; retry
                 time.sleep(0.2)
                 continue
 
@@ -77,7 +76,7 @@ class VisualBackend:
 
         return None
 
-    def find_by_template(self, template_path: str, threshold: float = 0.8, timeout: float = 10.0) -> Optional[Element]:
+    def find_by_template(self, template_path: str, threshold: float = 0.8, timeout: float = 10.0) -> Element | None:
         """Find a UI element by image template matching."""
         if not self._cv_available:
             raise BackendNotAvailable("visual", "OpenCV not installed. Install: pip install opencv-python")

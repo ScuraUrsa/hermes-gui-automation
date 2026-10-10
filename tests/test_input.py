@@ -63,7 +63,7 @@ class TestClipboard:
         assert isinstance(text, str)
 
     def test_set_and_get(self, display):
-        from hermes_gui.input.clipboard import set_clipboard_text, get_clipboard_text
+        from hermes_gui.input.clipboard import get_clipboard_text, set_clipboard_text
         set_clipboard_text("test123")
         text = get_clipboard_text()
         assert "test123" in text

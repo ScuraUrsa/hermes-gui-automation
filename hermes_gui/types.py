@@ -1,8 +1,8 @@
 """Hermes GUI Automation — type definitions."""
 
 from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass
@@ -24,7 +24,7 @@ class BoundingBox:
     def contains(self, x: int, y: int) -> bool:
         return self.x <= x <= self.x + self.width and self.y <= y <= self.y + self.height
 
-    def overlap(self, other: "BoundingBox") -> float:
+    def overlap(self, other: BoundingBox) -> float:
         """Intersection over Union (IoU) with another box."""
         xi = max(self.x, other.x)
         yi = max(self.y, other.y)
@@ -76,9 +76,9 @@ class Window:
 @dataclass
 class Screenshot:
     """A captured screenshot with metadata."""
-    image: "Image" = None  # PIL Image object (lazy import)  # noqa: F821
+    image: Image = None  # PIL Image object (lazy import)  # noqa: F821
     width: int = 0
     height: int = 0
     timestamp: float = 0.0
-    region: Optional[BoundingBox] = None  # If partial capture
-    window_title: Optional[str] = None    # If window-specific capture
+    region: BoundingBox | None = None  # If partial capture
+    window_title: str | None = None    # If window-specific capture
