@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   check-xvfb:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNS_ON || 'hermes' }}
     environment: production
     steps:
       - name: Install SSH key
@@ -59,7 +59,7 @@ jobs:
           ssh $VM_USER@$VM_HOST 'DISPLAY=:99 xdpyinfo | grep dimensions || echo "Display :99 not accessible"'
 
   check-atspi:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNS_ON || 'hermes' }}
     environment: production
     steps:
       - name: Install SSH key
@@ -107,7 +107,7 @@ jobs:
           ssh $VM_USER@$VM_HOST 'gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus --method org.freedesktop.DBus.Properties.Get org.a11y.Status IsEnabled || echo "AT-SPI2 bus not responding"'
 
   check-ocr:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNS_ON || 'hermes' }}
     environment: production
     steps:
       - name: Install SSH key
@@ -162,7 +162,7 @@ jobs:
           " 2>&1 || echo "OCR test failed"'
 
   check-browser:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNS_ON || 'hermes' }}
     environment: production
     steps:
       - name: Install SSH key
@@ -212,7 +212,7 @@ jobs:
   alert-on-failure:
     if: failure()
     needs: [check-xvfb, check-atspi, check-ocr, check-browser]
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNS_ON || 'hermes' }}
     permissions:
       issues: write
     steps:
