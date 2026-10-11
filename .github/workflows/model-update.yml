@@ -7,7 +7,7 @@ on:
 
 jobs:
   check-model-updates:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNS_ON || 'hermes' }}
     steps:
       - uses: actions/checkout@v5
       - name: Check for new Florence-2 releases
@@ -70,7 +70,7 @@ jobs:
   promote-model:
     needs: download-and-test
     if: success()
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNS_ON || 'hermes' }}
     environment: production
     steps:
       - name: Update model symlink on production
