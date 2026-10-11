@@ -31,7 +31,7 @@ jobs:
 
   download-and-test:
     needs: check-model-updates
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNS_ON || 'hermes' }}
     steps:
       - uses: actions/checkout@v5
       - name: Set up Python
