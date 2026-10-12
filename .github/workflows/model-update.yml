@@ -47,8 +47,9 @@ jobs:
         # breaks on newer transformers ('Florence2LanguageConfig' object has no
         # attribute 'forced_bos_token_id' / missing '_supports_sdpa'), so pin
         # the last release it works with. einops and timm are imported by the
-        # remote modeling code.
-        run: pip install transformers==4.49.0 torch einops timm Pillow mss pytesseract pytest
+        # remote modeling code. The package itself is installed so the vision
+        # tests can import hermes_gui.
+        run: pip install -e ".[dev,vlm]" "transformers==4.49.0"
       - name: Start Xvfb
         run: |
           Xvfb :99 -screen 0 1920x1080x24 -ac +extension RANDR &
@@ -65,7 +66,8 @@ jobs:
       - name: Run vision tests
         run: |
           export DISPLAY=:99
-          pytest tests/test_vision.py -v -m vlm || echo "VLM tests skipped (model may need GPU)"
+          # Tests skip themselves when the model can't run; any other error fails the job.
+          pytest tests/test_vision.py -v -m vlm -rs
 
   promote-model:
     needs: download-and-test
