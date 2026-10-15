@@ -1,0 +1,9 @@
+{
+  "kind": "email",
+  "from": "billing@invoices.example.com",
+  "from_name": "Example Energy",
+  "subject": "Faktura 2026/10/0042",
+  "date": "2026-10-12T08:15:00+02:00",
+  "body": "Dzień dobry,\nprosimy o zapłatę faktury 2026/10/0042.\nKwota do zapłaty: 1 234,56 zł\nNumer rachunku: 12 1234 5678 9012 3456 7890 1234\nTermin: 2026-10-20\n",
+  "attachments": ["faktura-2026-10-0042.pdf"]
+}

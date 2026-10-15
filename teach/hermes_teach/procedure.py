@@ -35,6 +35,7 @@ resolved at execution time and never written to logs or metrics.
 from __future__ import annotations
 
 import ast
+import keyword
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -308,30 +309,45 @@ class Procedure:
 
 
 # --- safe expression evaluation --------------------------------------------
+# Procedure conditions (``when``) see parameter names only. Workflows use the
+# *extended* grammar: dotted lookups into the run context (``trigger.subject``,
+# ``steps.pay.ok``), ``+ - * /`` and unary minus. Still no calls, no indexing,
+# no attribute access on anything but plain mappings.
 _ALLOWED = (ast.Expression, ast.BoolOp, ast.And, ast.Or, ast.UnaryOp, ast.Not, ast.Compare,
             ast.Eq, ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE, ast.In, ast.NotIn,
             ast.Name, ast.Load, ast.Constant, ast.List, ast.Tuple)
+_EXTENDED = _ALLOWED + (ast.Attribute, ast.BinOp, ast.Add, ast.Sub, ast.Mult, ast.Div, ast.USub)
+_CONSTS = {"true": True, "false": False, "none": None, "True": True, "False": False, "None": None}
 
 
-def _parse(expr: str) -> ast.Expression:
+_KEYWORD_ATTR = re.compile(r"\.(" + "|".join(keyword.kwlist) + r")\b")
+
+
+def _parse(expr: str, extended: bool = False) -> ast.Expression:
+    if extended:
+        # payload fields may be Python keywords (``trigger.from``): parse them as ``from_``
+        expr = _KEYWORD_ATTR.sub(lambda m: "." + m.group(1) + "_", expr)
     try:
-        tree = ast.parse(expr, mode="eval")
+        tree = ast.parse(expr.strip(), mode="eval")
     except SyntaxError as e:
         raise ProcedureError(f"bad condition '{expr}': {e.msg}") from None
+    allowed = _EXTENDED if extended else _ALLOWED
     for node in ast.walk(tree):
-        if not isinstance(node, _ALLOWED):
+        if not isinstance(node, allowed):
             raise ProcedureError(f"condition '{expr}' uses unsupported syntax {type(node).__name__}")
+        if isinstance(node, ast.UnaryOp) and not isinstance(node.op, (ast.Not, ast.USub)):
+            raise ProcedureError(f"condition '{expr}' uses unsupported operator {type(node.op).__name__}")
     return tree
 
 
-def expression_names(expr: str) -> set[str]:
-    builtins = {"true", "false", "none", "True", "False", "None"}
-    return {n.id for n in ast.walk(_parse(expr)) if isinstance(n, ast.Name)} - builtins
+def expression_names(expr: str, extended: bool = False) -> set[str]:
+    """Names an expression reads. In extended mode only the root of ``a.b.c`` (``a``)."""
+    return {n.id for n in ast.walk(_parse(expr, extended)) if isinstance(n, ast.Name)} - set(_CONSTS)
 
 
-def evaluate(expr: str, params: dict[str, Any]) -> bool:
-    tree = _parse(expr)
-    consts = {"true": True, "false": False, "none": None, "True": True, "False": False, "None": None}
+def evaluate_value(expr: str, params: dict[str, Any], extended: bool = False) -> Any:
+    """Evaluate an expression and return its value (``evaluate`` returns the truth of it)."""
+    tree = _parse(expr, extended)
 
     def ev(n: ast.AST) -> Any:
         if isinstance(n, ast.Expression):
@@ -341,35 +357,73 @@ def evaluate(expr: str, params: dict[str, Any]) -> bool:
         if isinstance(n, ast.Name):
             if n.id in params:
                 return params[n.id]
-            if n.id in consts:
-                return consts[n.id]
+            if n.id in _CONSTS:
+                return _CONSTS[n.id]
             raise ProcedureError(f"unknown name '{n.id}' in condition")
+        if isinstance(n, ast.Attribute):
+            base = ev(n.value)
+            if base is None:
+                return None                      # missing branch of the context: treated as null
+            if not isinstance(base, dict):
+                raise ProcedureError(f"'.{n.attr}': attribute access is only allowed on mappings")
+            if n.attr not in base and n.attr.endswith("_") and n.attr[:-1] in keyword.kwlist:
+                return base.get(n.attr[:-1])
+            return base.get(n.attr)
         if isinstance(n, (ast.List, ast.Tuple)):
             return [ev(e) for e in n.elts]
         if isinstance(n, ast.UnaryOp):
-            return not ev(n.operand)
+            v = ev(n.operand)
+            return -v if isinstance(n.op, ast.USub) else not v
+        if isinstance(n, ast.BinOp):
+            left, right = ev(n.left), ev(n.right)
+            try:
+                return _BIN[type(n.op)](left, right)
+            except (TypeError, ZeroDivisionError) as e:
+                raise ProcedureError(f"cannot compute '{expr}': {e}") from None
         if isinstance(n, ast.BoolOp):
-            vals = (ev(v) for v in n.values)
-            return all(vals) if isinstance(n.op, ast.And) else any(vals)
+            if isinstance(n.op, ast.And):
+                val: Any = True
+                for v in n.values:
+                    val = ev(v)
+                    if not val:
+                        return val
+                return val
+            val = False
+            for v in n.values:
+                val = ev(v)
+                if val:
+                    return val
+            return val
         if isinstance(n, ast.Compare):
             left = ev(n.left)
             for op, right_node in zip(n.ops, n.comparators, strict=True):
                 right = ev(right_node)
-                ok = _OPS[type(op)](left, right)
+                try:
+                    ok = _OPS[type(op)](left, right)
+                except TypeError:
+                    raise ProcedureError(f"cannot compare {left!r} and {right!r} in '{expr}'") from None
                 if not ok:
                     return False
                 left = right
             return True
         raise ProcedureError(f"unsupported node {type(n).__name__}")
 
-    return bool(ev(tree))
+    return ev(tree)
+
+
+def evaluate(expr: str, params: dict[str, Any], extended: bool = False) -> bool:
+    return bool(evaluate_value(expr, params, extended))
 
 
 _OPS: dict[type, Callable[[Any, Any], bool]] = {
     ast.Eq: lambda a, b: a == b, ast.NotEq: lambda a, b: a != b,
     ast.Lt: lambda a, b: a < b, ast.LtE: lambda a, b: a <= b,
     ast.Gt: lambda a, b: a > b, ast.GtE: lambda a, b: a >= b,
-    ast.In: lambda a, b: a in b, ast.NotIn: lambda a, b: a not in b,
+    ast.In: lambda a, b: a in (b or []), ast.NotIn: lambda a, b: a not in (b or []),
+}
+_BIN: dict[type, Callable[[Any, Any], Any]] = {
+    ast.Add: lambda a, b: a + b, ast.Sub: lambda a, b: a - b,
+    ast.Mult: lambda a, b: a * b, ast.Div: lambda a, b: a / b,
 }
 
 

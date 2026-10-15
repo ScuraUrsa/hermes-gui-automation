@@ -141,3 +141,44 @@ def test_record_generalize_replay_compile(tmp_path, examples, monkeypatch):
     app3.wait(timeout=10)
     assert json.loads(out3.read_text()) == {"name": "Ewa Lis", "login": "anna", "password": "haslo-xyz",
                                             "newsletter": True, "invoice": True}
+
+    # 5. the procedure as a tile in a workflow: values come from an "e-mail", a threshold decides whether
+    #    the user is asked, and the result is logged to a CSV. Real X input again, fourth parameter set.
+    from hermes_teach.channels import ScriptedChannel
+    from hermes_teach.workflow import Library, Workflow, WorkflowRunner
+    proc.save(tmp_path / "demo-form.yaml")
+    wf = Workflow.from_yaml(f"""
+name: form-from-mail
+on: [{{email: {{subject: "re:(?i)form"}}}}, manual]
+inputs: {{limit: {{type: int, default: 2}}}}
+extract:
+  person: {{from: trigger.body, regex: "Name: (.+)"}}
+  copies: {{from: trigger.body, regex: "Copies: (\\\\d+)", type: int, default: 1}}
+steps:
+  - id: fill
+    uses: procedure
+    procedure: demo-form
+    with: {{{text_param}: "{{{{ extract.person }}}}", invoice: "{{{{ copies > 1 }}}}", newsletter: false}}
+    confirm_when: "copies > inputs.limit"
+    confirm_text: "{{{{ copies }}}} copies for {{{{ person }}}} is above {{{{ inputs.limit }}}}. Go on?"
+  - id: log
+    uses: table.append
+    needs: [fill]
+    file: "{tmp_path / 'forms.csv'}"
+    row: {{who: "{{{{ person }}}}", copies: "{{{{ copies }}}}", status: "{{{{ steps.fill.status }}}}"}}
+outputs: {{filled: "{{{{ steps.fill.ok }}}}"}}
+""")
+    out4 = tmp_path / "workflow.json"
+    app4, _, _ = start_app(examples, out4, "+300+120")
+    chan = ScriptedChannel(answers=["tak"])
+    wres = WorkflowRunner(
+        wf, library=Library([tmp_path]), channel=chan, runs_dir=tmp_path / "runs",
+        runner_factory=lambda p: Runner(p, desktop=DesktopDriver(), secrets=SecretStore(p.credentials)),
+    ).run({}, {"kind": "email", "subject": "Form request", "body": "Name: Zofia Kot\nCopies: 3\n"})
+    assert wres.status == "ok", wres.error
+    app4.wait(timeout=10)
+    assert json.loads(out4.read_text()) == {"name": "Zofia Kot", "login": "anna", "password": "haslo-xyz",
+                                            "newsletter": False, "invoice": True}
+    assert len(chan.questions) == 1 and "3 copies for Zofia Kot is above 2" in chan.questions[0][0]
+    assert (tmp_path / "forms.csv").read_text().splitlines() == ["who,copies,status", "Zofia Kot,3,ok"]
+    assert wres.outputs == {"filled": True}

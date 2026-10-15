@@ -1,0 +1,65 @@
+name: pay-invoice-from-email
+description: When an invoice e-mail arrives, pay the amount it names; above the threshold ask first; log it.
+version: 1
+on:
+  - email:
+      host: imap.gmail.com
+      credential: mail
+      from: "*@invoices.example.com"
+      subject: "re:(?i)faktura|invoice|płatno"
+  - manual: {}
+inputs:
+  threshold: {type: number, default: 500, description: amounts above this are confirmed by the user first}
+  log_file: {type: string, default: "~/hermes-payments.csv", description: CSV or XLSX file to append to}
+credentials:
+  mail: {provider: bitwarden, item: "Gmail IMAP", fields: [username, password]}
+extract:
+  amount:
+    from: trigger.body
+    regex: "(\\d[\\d  ]*(?:[,.]\\d{2})?)\\s*(?:zł|PLN)"
+    type: number
+    required: true
+  account:
+    from: trigger.body
+    regex: "\\b(\\d{2}(?:[ ]?\\d{4}){6})\\b"
+    required: true
+  title:
+    from: trigger.subject
+  recipient:
+    from: trigger.from_name
+    default: ""
+steps:
+  - id: pay
+    uses: procedure
+    procedure: bank-transfer
+    with:
+      amount: "{{ extract.amount }}"
+      account: "{{ extract.account }}"
+      title: "{{ extract.title }}"
+      recipient: "{{ extract.recipient }}"
+    confirm_when: "extract.amount > inputs.threshold"
+    confirm_text: >-
+      Invoice "{{ extract.title }}" from {{ trigger.from }} is {{ extract.amount }} PLN,
+      above your threshold of {{ inputs.threshold }} PLN. Pay it?
+  - id: log
+    uses: table.append
+    needs: [pay]
+    file: "{{ inputs.log_file }}"
+    row:
+      date: "{{ today }}"
+      from: "{{ trigger.from }}"
+      title: "{{ extract.title }}"
+      amount: "{{ extract.amount }}"
+      status: "{{ steps.pay.status }}"
+  - id: done
+    uses: notify
+    needs: [pay]
+    text: "Paid {{ extract.amount }} PLN for \"{{ extract.title }}\" (logged in {{ inputs.log_file }})."
+  - id: not_paid
+    uses: notify
+    always: true                      # runs even after a failed or cancelled step
+    if: "not steps.pay.ok"
+    text: "Invoice \"{{ extract.title }}\" ({{ extract.amount }} PLN) was NOT paid: {{ steps.pay.status }} {{ steps.pay.error }}"
+outputs:
+  paid: "{{ steps.pay.ok }}"
+  amount: "{{ extract.amount }}"

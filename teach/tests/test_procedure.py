@@ -67,3 +67,21 @@ def test_validation_catches_bad_refs():
         Procedure.from_yaml("name: x\nsteps:\n  - {action: type, text: hunter2, sensitive: true}\n")
     with pytest.raises(ProcedureError, match="unknown action"):
         Procedure.from_yaml("name: x\nsteps:\n  - {action: explode}\n")
+
+
+def test_extended_expressions_for_workflows():
+    from hermes_teach.procedure import evaluate_value, expression_names
+    ctx = {"inputs": {"threshold": 500}, "extract": {"amount": 1234.5}, "trigger": {"from": "a@b", "n": None},
+           "steps": {"pay": {"ok": True}}}
+    assert evaluate("extract.amount > inputs.threshold and steps.pay.ok", ctx, extended=True)
+    assert evaluate_value("extract.amount * 2 - 1", ctx, extended=True) == 2468.0
+    assert evaluate_value("-inputs.threshold", ctx, extended=True) == -500
+    assert evaluate_value("trigger.from", ctx, extended=True) == "a@b"
+    assert evaluate_value("trigger.missing.deeper", ctx, extended=True) is None
+    assert evaluate_value("steps.nope.ok or 'fallback'", ctx, extended=True) == "fallback"
+    assert expression_names("extract.amount > inputs.threshold", extended=True) == {"extract", "inputs"}
+    for bad in ("inputs.threshold ** 9", "steps['pay']", "f(1)", "extract.amount.real"):
+        with pytest.raises(ProcedureError):
+            evaluate_value(bad, ctx, extended=True)
+    with pytest.raises(ProcedureError, match="unsupported syntax"):
+        evaluate("extract.amount > 1", ctx)          # dotted names stay out of procedure conditions

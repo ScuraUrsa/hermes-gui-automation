@@ -8,7 +8,14 @@
     hermes-teach verdict accept|reject
     hermes-teach metrics [name]
     hermes-teach compile proc.yaml [--target playwright|autoit|xdotool]
-    hermes-teach export-skill proc.yaml --dir ~/.hermes/skills
+    hermes-teach export-skill proc.yaml|wf.yaml --dir ~/.hermes/skills
+    hermes-teach edit proc.yaml "when country is DE click Lieferung instead of Dostawa"
+    hermes-teach workflow draft "every invoice mail: pay, ask me above 500 PLN, log to Excel" --out wf.yaml
+    hermes-teach workflow validate|show wf.yaml
+    hermes-teach workflow run wf.yaml [--input k=v] [--payload event.json] [--dry-run] [--channel matrix]
+    hermes-teach workflow watch [--once] [--interval 60]      # e-mail / file / schedule triggers
+    hermes-teach workflow tiles
+    hermes-teach ask "Pay 1200 PLN?" [--options tak,nie]       # test the question channel
 """
 
 from __future__ import annotations
@@ -116,7 +123,8 @@ def cmd_generalize(a: argparse.Namespace) -> int:
     return 0
 
 
-def _build_runner(proc: Procedure, a: argparse.Namespace, metrics: Metrics | None) -> Any:
+def _build_runner(proc: Procedure, a: argparse.Namespace, metrics: Metrics | None,
+                  confirm: Any = None) -> Any:
     from hermes_teach.drivers.base import DryRunDriver
     from hermes_teach.runner import Runner
     from hermes_teach.secrets import SecretStore
@@ -142,7 +150,7 @@ def _build_runner(proc: Procedure, a: argparse.Namespace, metrics: Metrics | Non
         recover = VisionRecovery(from_env(), desktop)
     return Runner(proc, desktop=desktop, browser_factory=browser_factory,
                   secrets=SecretStore(proc.credentials, override=a.secrets_provider),
-                  confirm=(lambda q: True) if a.yes else _ask, metrics=metrics,
+                  confirm=confirm or ((lambda q: True) if a.yes else _ask), metrics=metrics,
                   log=lambda m: print("  " + m), resolve_secrets=not a.dry_run, recover=recover)
 
 
@@ -224,10 +232,185 @@ def cmd_compile(a: argparse.Namespace) -> int:
 
 
 def cmd_export(a: argparse.Namespace) -> int:
-    from hermes_teach.skill_export import export_skill
-    d = export_skill(Procedure.load(a.procedure), a.dir)
+    import yaml
+
+    from hermes_teach.skill_export import export_skill, export_workflow_skill
+    data = yaml.safe_load(Path(a.procedure).read_text(encoding="utf-8")) or {}
+    if _is_workflow(data):
+        from hermes_teach.workflow import Workflow
+        d = export_workflow_skill(Workflow.from_dict(data), a.dir)
+    else:
+        d = export_skill(Procedure.from_dict(data), a.dir)
     print(f"Skill exported to {d}")
     return 0
+
+
+def _is_workflow(data: dict[str, Any]) -> bool:
+    steps = data.get("steps") or []
+    has_uses = any(isinstance(st, dict) and "uses" in st for st in steps)
+    return bool(data.get("on")) or bool(data.get("inputs")) or has_uses
+
+
+# --- natural-language edits and workflows -------------------------------------
+def cmd_edit(a: argparse.Namespace) -> int:
+    from hermes_teach.llm import from_env
+    from hermes_teach.refine import diff, explain_change, llm_edit
+    proc = Procedure.load(a.procedure)
+    instruction = a.instruction
+    if instruction.startswith("@"):
+        instruction = Path(instruction[1:]).read_text(encoding="utf-8")
+    new = llm_edit(from_env(), proc, instruction)
+    print(diff(proc.to_yaml(), new.to_yaml(), proc.name))
+    print(explain_change(proc, new))
+    out = Path(a.out or a.procedure)
+    if a.show:
+        print(f"(not saved; drop --show to write {out})")
+        return 0
+    new.save(out)
+    print(f"Wrote {out} as v{new.version} (acceptance streak starts again for the new version).")
+    return 0
+
+
+def _channel(a: argparse.Namespace) -> Any:
+    from hermes_teach import channels
+    return channels.from_env(getattr(a, "channel", None), yes=bool(getattr(a, "yes", False)))
+
+
+def _library(a: argparse.Namespace) -> Any:
+    from hermes_teach.workflow import Library
+    dirs = [Path(d) for d in (getattr(a, "dir", None) or [])] or None
+    return Library(dirs=([*dirs, home()] if dirs else None), skills_dir=getattr(a, "skills_dir", None))
+
+
+def _load_workflow(a: argparse.Namespace, ref: str) -> Any:
+    return _library(a).workflow(ref)
+
+
+def _wf_runner(a: argparse.Namespace, wf: Any, channel: Any, metrics: Metrics | None) -> Any:
+    from hermes_teach.channels import is_yes
+    from hermes_teach.workflow import WorkflowRunner
+    lib = _library(a)
+
+    def runner_factory(proc: Procedure) -> Any:
+        def confirm(q: str) -> bool:
+            return True if a.yes or a.dry_run else is_yes(channel.ask(q, None))
+        return _build_runner(proc, a, None if a.dry_run else _metrics(), confirm=confirm)
+
+    return WorkflowRunner(wf, library=lib, channel=channel, runner_factory=runner_factory, metrics=metrics,
+                          dry_run=a.dry_run, log=lambda m: print("  " + m), runs_dir=home() / "runs")
+
+
+def _payload(a: argparse.Namespace) -> dict[str, Any] | None:
+    if not getattr(a, "payload", None):
+        return None
+    if a.payload == "-":
+        return json.load(sys.stdin)
+    return json.loads(Path(a.payload).read_text(encoding="utf-8"))
+
+
+def cmd_wf_validate(a: argparse.Namespace) -> int:
+    from hermes_teach.refine import describe_workflow
+    wf = _load_workflow(a, a.workflow)
+    print(describe_workflow(wf) if a.cmd_wf == "show" else f"{wf.name} v{wf.version}: valid ({len(wf.steps)} steps)")
+    lib = _library(a)
+    missing = []
+    for st in wf.steps:
+        try:
+            if st.uses == "procedure":
+                lib.procedure(str(st.config["procedure"]))
+            elif st.uses == "workflow":
+                lib.workflow(str(st.config["workflow"]))
+        except Exception as e:  # noqa: BLE001
+            missing.append(str(e))
+    for m in missing:
+        print(f"warning: {m}")
+    return 1 if missing and a.cmd_wf == "validate" else 0
+
+
+def cmd_wf_run(a: argparse.Namespace) -> int:
+    wf = _load_workflow(a, a.workflow)
+    channel = _channel(a)
+    metrics = None if a.dry_run else _metrics()
+    runner = _wf_runner(a, wf, channel, metrics)
+    inputs = _params(a.input)
+    res = runner.run(inputs, _payload(a), mode="manual" if a.cmd_wf == "run" else "trigger")
+    if res.outputs:
+        print("outputs: " + json.dumps(res.outputs, ensure_ascii=False, default=str))
+    if res.run_dir:
+        print(f"run record: {res.run_dir}")
+    return 0 if res.status == "ok" else 1
+
+
+def cmd_wf_watch(a: argparse.Namespace) -> int:
+    from hermes_teach.watch import watch
+    channel = _channel(a)
+    lib = _library(a)
+    metrics = _metrics()
+
+    def run(wf: Any, payload: dict[str, Any]) -> Any:
+        res = _wf_runner(a, wf, channel, metrics).run({}, payload, mode="trigger")
+        print(f"{wf.name}: {res.status}" + (f" ({res.error})" if res.error else ""))
+        return res
+
+    print(f"watching {len(lib.workflows())} workflow file(s) in {', '.join(str(d) for d in lib.dirs)}"
+          + ("" if a.once else f" every {a.interval}s"))
+    try:
+        watch(lib, run, home() / "state", interval=a.interval, once=a.once, secrets_override=a.secrets_provider)
+    except KeyboardInterrupt:
+        pass
+    return 0
+
+
+def cmd_wf_draft(a: argparse.Namespace) -> int:
+    from hermes_teach.llm import from_env
+    from hermes_teach.refine import describe_workflow, draft_workflow
+    lib = _library(a)
+    procs = []
+    for ref in a.procedure or []:
+        procs.append(lib.procedure(ref))
+    if not procs:
+        for d in lib.dirs:
+            for p in list(d.glob("*.yaml")) + list((d / "procedures").glob("*.yaml")):
+                try:
+                    procs.append(Procedure.load(p))
+                except Exception:  # noqa: BLE001 - not every yaml is a procedure
+                    continue
+    desc = a.description
+    if desc.startswith("@"):
+        desc = Path(desc[1:]).read_text(encoding="utf-8")
+    wf = draft_workflow(from_env(), desc, procs, name=a.name or "")
+    out = Path(a.out or f"{wf.name}.yaml")
+    wf.save(out)
+    print(describe_workflow(wf))
+    print(f"Wrote {out}. Check it with `hermes-teach workflow run {out} --dry-run`.")
+    return 0
+
+
+def cmd_wf_tiles(a: argparse.Namespace) -> int:
+    from hermes_teach.tiles import TILE_DOCS
+    for k, v in TILE_DOCS.items():
+        print(f"{k:14} {v}")
+    return 0
+
+
+def cmd_wf_list(a: argparse.Namespace) -> int:
+    from hermes_teach.workflow import Workflow
+    lib = _library(a)
+    for p in lib.workflows():
+        try:
+            wf = Workflow.load(p)
+            print(f"{wf.name:30} {', '.join(t.kind for t in wf.on) or 'manual':20} {p}")
+        except Exception as e:  # noqa: BLE001
+            print(f"{p}: invalid ({e})")
+    return 0
+
+
+def cmd_ask(a: argparse.Namespace) -> int:
+    channel = _channel(a)
+    options = [o.strip() for o in a.options.split(",")] if a.options else None
+    answer = channel.ask(a.question, options, timeout=a.timeout)
+    print(json.dumps({"answer": answer}, ensure_ascii=False))
+    return 0 if answer is not None else 1
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -296,10 +479,66 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--streak", type=int, default=DEFAULT_STREAK)
     p.set_defaults(fn=cmd_compile)
 
-    p = sub.add_parser("export-skill", help="write a Hermes skill directory")
-    p.add_argument("procedure")
+    p = sub.add_parser("export-skill", help="write a Hermes skill directory (procedure or workflow)")
+    p.add_argument("procedure", metavar="procedure-or-workflow.yaml")
     p.add_argument("--dir", default=str(Path.home() / ".hermes" / "skills"))
     p.set_defaults(fn=cmd_export)
+
+    p = sub.add_parser("edit", help="change a procedure with a plain-language instruction (LLM)")
+    p.add_argument("procedure")
+    p.add_argument("instruction", help="text or @file")
+    p.add_argument("--out", help="write here instead of overwriting")
+    p.add_argument("--show", action="store_true", help="only print the diff")
+    p.set_defaults(fn=cmd_edit)
+
+    p = sub.add_parser("ask", help="send a question through the configured channel (test it)")
+    p.add_argument("question")
+    p.add_argument("--options", help="comma separated")
+    p.add_argument("--timeout", type=float, default=600)
+    p.add_argument("--channel", choices=["console", "command", "matrix", "file"])
+    p.set_defaults(fn=cmd_ask)
+
+    w = sub.add_parser("workflow", help="chain procedures and tiles; triggers, thresholds, questions")
+    wsub = w.add_subparsers(dest="cmd_wf", required=True)
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--dir", action="append", help="extra directory with procedures/ and workflows/")
+    common.add_argument("--skills-dir", help="Hermes skills directory (default ~/.hermes/skills)")
+    runopts = argparse.ArgumentParser(add_help=False)
+    runopts.add_argument("--dry-run", action="store_true")
+    runopts.add_argument("--yes", action="store_true", help="auto-confirm every question")
+    runopts.add_argument("--channel", choices=["console", "command", "matrix", "file"])
+    runopts.add_argument("--headless", action="store_true")
+    runopts.add_argument("--profile", help="persistent browser profile dir")
+    runopts.add_argument("--secrets-provider", choices=["bitwarden", "bws", "env"])
+    runopts.add_argument("--recover", action="store_true")
+    runopts.add_argument("--no-verdict", action="store_true", default=True, help=argparse.SUPPRESS)
+    runopts.add_argument("--streak", type=int, default=DEFAULT_STREAK, help=argparse.SUPPRESS)
+
+    for name in ("validate", "show"):
+        p = wsub.add_parser(name, parents=[common], help="check a workflow" if name == "validate" else "print its plan")
+        p.add_argument("workflow")
+        p.set_defaults(fn=cmd_wf_validate)
+    for name in ("run", "trigger"):
+        p = wsub.add_parser(name, parents=[common, runopts],
+                            help="run by hand" if name == "run" else "run with an event payload (JSON file or -)")
+        p.add_argument("workflow")
+        p.add_argument("--input", action="append", default=[], metavar="NAME=VALUE")
+        p.add_argument("--payload", help="JSON file with the trigger payload ('-' = stdin)")
+        p.set_defaults(fn=cmd_wf_run)
+    p = wsub.add_parser("watch", parents=[common, runopts], help="poll e-mail/file/schedule triggers")
+    p.add_argument("--once", action="store_true")
+    p.add_argument("--interval", type=float, default=60)
+    p.set_defaults(fn=cmd_wf_watch)
+    p = wsub.add_parser("draft", parents=[common], help="write a workflow from a description (LLM)")
+    p.add_argument("description", help="text or @file")
+    p.add_argument("--procedure", action="append", help="procedures it may use (default: all found)")
+    p.add_argument("--name")
+    p.add_argument("--out")
+    p.set_defaults(fn=cmd_wf_draft)
+    p = wsub.add_parser("tiles", help="list built-in tiles")
+    p.set_defaults(fn=cmd_wf_tiles)
+    p = wsub.add_parser("list", parents=[common], help="workflows in the library")
+    p.set_defaults(fn=cmd_wf_list)
 
     a = ap.parse_args(argv)
     return int(a.fn(a))
