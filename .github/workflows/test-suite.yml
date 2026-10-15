@@ -8,7 +8,7 @@ on:
 
 jobs:
   lint-python:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNS_ON || 'hermes' }}
     steps:
       - uses: actions/checkout@v5
       - name: Set up Python
@@ -25,7 +25,7 @@ jobs:
         run: bandit -r hermes_gui/ -c bandit.yaml || true
 
   unit-tests:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNS_ON || 'hermes' }}
     strategy:
       matrix:
         python-version: ['3.11', '3.12']
@@ -41,6 +41,8 @@ jobs:
           sudo apt-get install -y xvfb xdotool wmctrl xclip scrot tesseract-ocr tesseract-ocr-eng
           # Lightweight EWMH window manager (wmctrl needs one) and xlogo for a test window
           sudo apt-get install -y --no-install-recommends openbox x11-apps
+          # The code defaults to Tesseract 5's data dir (Ubuntu 24.04); the self-hosted runner is 22.04 (Tesseract 4).
+          echo "TESSERACT_DATA_DIR=$(dirname "$(dpkg -L tesseract-ocr-eng | grep 'eng.traineddata$')")" >> "$GITHUB_ENV"
       - name: Install Python deps
         run: pip install -e ".[dev]"
       - name: Start Xvfb + Openbox
@@ -62,7 +64,7 @@ jobs:
 
   integration-tests:
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNS_ON || 'hermes' }}
     steps:
       - uses: actions/checkout@v5
       - name: Set up Python
@@ -75,6 +77,8 @@ jobs:
           sudo apt-get install -y xvfb xdotool wmctrl xclip scrot imagemagick x11-apps
           sudo apt-get install -y tesseract-ocr tesseract-ocr-eng tesseract-ocr-pol
           sudo apt-get install -y xfce4 xfce4-terminal firefox gedit nautilus
+          # The code defaults to Tesseract 5's data dir (Ubuntu 24.04); the self-hosted runner is 22.04 (Tesseract 4).
+          echo "TESSERACT_DATA_DIR=$(dirname "$(dpkg -L tesseract-ocr-eng | grep 'eng.traineddata$')")" >> "$GITHUB_ENV"
       - name: Install Python deps
         run: pip install -e ".[dev]"
       - name: Start Xvfb + XFCE
