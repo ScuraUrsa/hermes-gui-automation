@@ -111,7 +111,7 @@ class AutoYesChannel(ConsoleChannel):
 
 
 class CommandChannel:
-    """``command`` gets ``{"id", "question", "options", "timeout"}`` on stdin, prints the answer.
+    """``command`` gets ``{"id", "question", "options", "timeout"}`` as UTF-8 JSON on stdin, prints the answer.
 
     ``notify`` sends ``{"id", "notify": text}`` and ignores the output.
     """
@@ -122,9 +122,11 @@ class CommandChannel:
 
     def _call(self, payload: dict[str, Any], timeout: float) -> str:
         try:
-            res = subprocess.run(shlex.split(self.command, posix=os.name != "nt"),
+            # Windows: one string, parsed by CreateProcess (a list would be re-quoted and break paths).
+            args: Any = self.command if os.name == "nt" else shlex.split(self.command)
+            res = subprocess.run(args,
                                  input=json.dumps(payload, ensure_ascii=False), capture_output=True,
-                                 text=True, timeout=timeout or self.timeout)
+                                 encoding="utf-8", timeout=timeout or self.timeout)
         except subprocess.TimeoutExpired:
             return ""
         if res.returncode != 0:

@@ -35,15 +35,16 @@ def test_scripted_channel_records():
 
 def test_command_channel(tmp_path):
     script = tmp_path / "answer.py"
-    script.write_text("import json,sys\nq=json.load(sys.stdin)\n"
+    script.write_text("import json,sys\nq=json.loads(sys.stdin.buffer.read().decode('utf-8'))\n"
                       "print('tak' if 'notify' not in q else '')\n"
-                      "open(sys.argv[1],'a').write(json.dumps(q)+'\\n')\n")
+                      "open(sys.argv[1],'a',encoding='utf-8').write(json.dumps(q)+'\\n')\n", encoding="utf-8")
     log = tmp_path / "log"
     c = CommandChannel(f'"{sys.executable}" "{script}" "{log}"')
-    assert c.ask("Pay?", ["tak", "nie"]) == "tak"
+    assert c.ask("Zapłacić?", ["tak", "nie"]) == "tak"
     c.notify("done")
-    lines = [json.loads(line) for line in log.read_text().splitlines()]
-    assert lines[0]["question"] == "Pay?" and lines[0]["options"] == ["tak", "nie"] and lines[1]["notify"] == "done"
+    lines = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
+    assert lines[0]["question"] == "Zapłacić?" and lines[0]["options"] == ["tak", "nie"]
+    assert lines[1]["notify"] == "done"
     bad = CommandChannel(f'"{sys.executable}" -c "import sys; sys.exit(2)"')
     with pytest.raises(ChannelError):
         bad.ask("x")
@@ -56,8 +57,8 @@ def test_file_channel_roundtrip(tmp_path):
         for _ in range(100):
             qs = list(tmp_path.glob("*.question.json"))
             if qs:
-                q = json.loads(qs[0].read_text())
-                (tmp_path / (q["id"] + ".answer")).write_text("2")
+                q = json.loads(qs[0].read_text(encoding="utf-8"))
+                (tmp_path / (q["id"] + ".answer")).write_text("2", encoding="utf-8")
                 return
             time.sleep(0.02)
 

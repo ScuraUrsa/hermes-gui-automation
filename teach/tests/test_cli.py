@@ -31,13 +31,13 @@ def test_generalize_dry_run_metrics_compile(tmp_path, teach_home, capsys, monkey
     assert main(["compile", str(out), "--target", "xdotool", "--out", str(script)]) == 0
     assert script.exists()
     assert main(["export-skill", str(out), "--dir", str(tmp_path / "skills")]) == 0
-    skill = (tmp_path / "skills" / "notes" / "SKILL.md").read_text()
+    skill = (tmp_path / "skills" / "notes" / "SKILL.md").read_text(encoding="utf-8")
     assert "text_1" in skill and "hermes-teach run" in skill
 
 
 def test_compile_refuses_without_streak(tmp_path, teach_home):
     out = tmp_path / "p.yaml"
-    out.write_text("name: p\nsteps:\n  - {action: key, keys: [enter]}\n")
+    out.write_text("name: p\nsteps:\n  - {action: key, keys: [enter]}\n", encoding="utf-8")
     assert main(["compile", str(out)]) == 1
 
 
@@ -76,7 +76,7 @@ def test_workflow_cli_dry_run_trigger_export(tmp_path, teach_home, capsys, examp
     assert "failed    pay" in out and "NOT paid" in out and "(auto)" in out
 
     assert main(["export-skill", wf, "--dir", str(tmp_path / "skills")]) == 0
-    skill = (tmp_path / "skills" / "pay-invoice-from-email" / "SKILL.md").read_text()
+    skill = (tmp_path / "skills" / "pay-invoice-from-email" / "SKILL.md").read_text(encoding="utf-8")
     assert "hermes-teach workflow run pay-invoice-from-email" in skill and "asks the user when" in skill
     assert (tmp_path / "skills" / "pay-invoice-from-email" / "workflow.yaml").exists()
 

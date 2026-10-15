@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 
@@ -81,8 +82,8 @@ def lib(tmp_path, monkeypatch):
     monkeypatch.setenv("HERMES_SECRET_BANK_PASSWORD", "pass-123")
     (tmp_path / "procedures").mkdir()
     (tmp_path / "workflows").mkdir()
-    (tmp_path / "procedures" / "bank-transfer.yaml").write_text(TRANSFER)
-    (tmp_path / "workflows" / "pay-invoice.yaml").write_text(PAY)
+    (tmp_path / "procedures" / "bank-transfer.yaml").write_text(TRANSFER, encoding="utf-8")
+    (tmp_path / "workflows" / "pay-invoice.yaml").write_text(PAY, encoding="utf-8")
     return Library([tmp_path])
 
 
@@ -127,10 +128,11 @@ def test_below_threshold_runs_without_question(lib, tmp_path):
     fills = [c[1]["value"] for c in drv.drivers[0].calls if c[0] == "browser.fill"]
     assert fills == ["jan", "***", "1234.56", "12 1234 5678 9012 3456 7890 1234", "Faktura 42"]
     assert drv.confirms == []                                   # workflow decided; procedure confirm auto-passed
-    rows = log.read_text().splitlines()
+    rows = log.read_text(encoding="utf-8").splitlines()
     assert rows[0] == "date,amount,net,status" and rows[1].endswith(",1234.56,1143.111111111111,ok")
     assert res.outputs == {"paid": True, "amount": 1234.56}
-    rec = json.loads((tmp_path / "runs" / "pay-invoice" / res.run_dir.split("/")[-1] / "run.json").read_text())
+    run_json = tmp_path / "runs" / "pay-invoice" / Path(res.run_dir).name / "run.json"
+    rec = json.loads(run_json.read_text(encoding="utf-8"))
     assert rec["status"] == "ok" and rec["steps"][0]["outputs"]["procedure"] == "bank-transfer"
     assert "pass-123" not in json.dumps(rec)
     assert m.stats("workflow:pay-invoice", 1).ok == 1
@@ -230,7 +232,7 @@ inputs: {who: {type: string, required: true}}
 steps:
   - {id: greet, uses: set, values: {msg: "hello {{ who }}"}}
 outputs: {msg: "{{ steps.greet.msg }}"}
-""")
+""", encoding="utf-8")
     parent = Workflow.from_yaml("""
 name: parent
 steps:

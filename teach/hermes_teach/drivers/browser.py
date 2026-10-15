@@ -23,12 +23,18 @@ class BrowserDriver:
         launch: dict[str, Any] = {"headless": headless}
         if executable_path:
             launch["executable_path"] = executable_path
-        if user_data_dir:
-            self.context = self._pw.chromium.launch_persistent_context(user_data_dir, **launch)
-            self.browser = None
-        else:
-            self.browser = self._pw.chromium.launch(**launch)
-            self.context = self.browser.new_context()
+        try:
+            if user_data_dir:
+                self.context = self._pw.chromium.launch_persistent_context(user_data_dir, **launch)
+                self.browser = None
+            else:
+                self.browser = self._pw.chromium.launch(**launch)
+                self.context = self.browser.new_context()
+        except Exception:
+            # Stop the driver, or its event loop stays running in this thread and every later
+            # sync_playwright() in the same process fails ("Sync API inside the asyncio loop").
+            self._pw.stop()
+            raise
         self.context.set_default_timeout(timeout_ms)
         self.page = self.context.pages[0] if self.context.pages else self.context.new_page()
 

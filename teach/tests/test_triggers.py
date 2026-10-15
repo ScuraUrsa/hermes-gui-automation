@@ -107,7 +107,7 @@ def test_email_source_polls_by_uid():
 
 def test_poll_files_settle_and_known(tmp_path):
     f = tmp_path / "a.pdf"
-    f.write_text("x")
+    f.write_text("x", encoding="utf-8")
     new, cur = poll_files(tmp_path, "*.pdf", settle=10)
     assert new == [] and cur == set()              # too fresh: wait until it stops changing
     old = time.time() - 60
@@ -137,7 +137,7 @@ extract:
 steps:
   - {id: s, uses: set, values: {got: "{{ amount }}"}}
 outputs: {got: "{{ steps.s.got }}"}
-""")
+""", encoding="utf-8")
     lib = Library([tmp_path])
     imap = FakeIMAP({1: HTML_ONLY})
     src = EmailSource("imap.example", "u", lambda: "p", connect=lambda: imap)

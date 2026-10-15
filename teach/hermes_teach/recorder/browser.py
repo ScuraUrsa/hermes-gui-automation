@@ -141,12 +141,17 @@ class BrowserRecorder:
         opts: dict[str, Any] = {"headless": self.headless}
         if self.executable_path:
             opts["executable_path"] = self.executable_path
-        if self.user_data_dir:
-            self.context = self._pw.chromium.launch_persistent_context(self.user_data_dir, **opts)
-            self._browser = None
-        else:
-            self._browser = self._pw.chromium.launch(**opts)
-            self.context = self._browser.new_context()
+        try:
+            if self.user_data_dir:
+                self.context = self._pw.chromium.launch_persistent_context(self.user_data_dir, **opts)
+                self._browser = None
+            else:
+                self._browser = self._pw.chromium.launch(**opts)
+                self.context = self._browser.new_context()
+        except Exception:
+            self._pw.stop()          # see BrowserDriver: a leaked driver breaks every later start
+            self._fh.close()
+            raise
         self.context.expose_binding("__hermesRecord", self._on_dom)
         self.context.add_init_script(RECORDER_JS)
         self.page = self.context.pages[0] if self.context.pages else self.context.new_page()
