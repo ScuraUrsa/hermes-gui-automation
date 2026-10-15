@@ -1,0 +1,25 @@
+name: bank-transfer
+description: Make a domestic transfer in the bank's web app (recorded in the browser)
+version: 1
+platforms: [windows, linux]
+requires_confirmation: false
+params:
+  amount: {type: number, required: true, description: amount in PLN}
+  account: {type: string, required: true, description: recipient account number (26 digits)}
+  title: {type: string, default: Invoice payment, description: transfer title}
+  recipient: {type: string, default: '', description: recipient name shown in the bank form}
+credentials:
+  bank: {provider: bitwarden, item: "My Bank", fields: [username, password]}
+steps:
+  - {action: browser.goto, target: {url: "https://bank.example.com/login"}}
+  - {action: browser.fill, target: {selector: "#login"}, text: "{{ secret.bank.username }}"}
+  - {action: browser.fill, target: {selector: "#password"}, text: "{{ secret.bank.password }}", sensitive: true}
+  - {action: browser.click, target: {selector: "button:has-text(\"Log in\")"}}
+  - {action: browser.click, target: {selector: "a:has-text(\"New transfer\")"}}
+  - {action: browser.fill, target: {selector: "input[name=\"account\"]"}, text: "{{ account }}"}
+  - {action: browser.fill, target: {selector: "input[name=\"recipient\"]"}, text: "{{ recipient }}"}
+  - {action: browser.fill, target: {selector: "input[name=\"amount\"]"}, text: "{{ amount }}"}
+  - {action: browser.fill, target: {selector: "input[name=\"title\"]"}, text: "{{ title }}"}
+  - {action: browser.click, target: {selector: "button:has-text(\"Send\")"}, confirm: true,
+     note: "irreversible: the runner asks before this step unless the workflow already confirmed"}
+  - {action: browser.expect_text, target: {selector: ".status"}, text: "Transfer accepted"}
