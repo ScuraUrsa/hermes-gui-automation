@@ -100,6 +100,49 @@ password masking).
 * Conditions are parsed with `ast` and evaluated with a whitelist: no calls,
   attributes, subscripts or arithmetic.
 
+## 3a. Parameterized procedures and workflows
+
+The user's requests ("if the country is DE click Z instead of Y", "pay the
+amount from the e-mail, above a threshold ask me", "then trigger the Excel
+procedure") are covered on two levels:
+
+* **Inside a procedure** every value is a typed param and every step can carry
+  `when`; alternatives are two steps with opposite conditions. Instead of
+  editing YAML by hand the user tells `hermes-teach edit` what should differ;
+  the LLM rewrites the procedure under the same format rules (`refine.py`),
+  the result is validated, inferred targets are marked for verification and
+  the version is bumped so the acceptance streak restarts.
+* **Across procedures** a *workflow* (`workflow.py`) is the GitHub-Actions-like
+  layer: `on` triggers, `inputs`, `extract` (regex or LLM over the event),
+  `steps` with `uses` (a recorded procedure, another workflow, or a built-in
+  tile), `if` / `needs` / `always` / `continue_on_error`, `confirm` and
+  `confirm_when`, per-step `outputs` and workflow `outputs`. Expressions use
+  the extended safe grammar (dotted lookups into the run context and
+  arithmetic, still no calls or indexing); templates that are exactly one
+  `{{ expr }}` keep the value's type, so an extracted amount reaches the
+  procedure as a number.
+
+Tiles (`tiles.py`) are deliberately few and side-effect-light: `shell`, `http`,
+`llm`, `ask`, `notify`, `set`, `wait`, `table.append` (CSV via stdlib, XLSX via
+openpyxl). Anything that touches a GUI stays a recorded procedure, so the same
+replay, metrics and promotion rules apply.
+
+**Human in the loop.** Questions and notices go through a channel
+(`channels.py`): console, a command (Hermes, a bot), a directory of
+question/answer files, or a Matrix room spoken to over the plain client-server
+API so no SDK is needed on the VM. `confirm_when` on a step is the threshold
+rule the user asked for; once the workflow has decided (asked and got "yes",
+or the case is below the threshold) the procedure's own `confirm` steps do
+not ask again, while a step without a confirm policy forwards them. Unanswered
+questions time out to "no".
+
+**Triggers** (`triggers.py`, `watch.py`): IMAP polling by UID (first poll arms
+on the newest message so an old inbox never floods the workflow), new files in
+a folder (ignoring files still being written), intervals, and arbitrary
+payloads passed to `workflow trigger` by Hermes webhooks or Home Assistant.
+State lives in `~/.hermes/teach/state/<workflow>.json`, so `watch --once` can be
+scheduled by cron, systemd or Hermes' own scheduler.
+
 ## 4. Where Hermes and Claude fit
 
 * **Hermes (24/7 on the VM or the PC)**: runs `hermes-teach run` from the
@@ -130,12 +173,18 @@ recorders, normalizer, heuristic + LLM generalization, runner with
 conditions/Bitwarden/confirmations, metrics + promotion, compilers to
 Playwright/AutoIt/xdotool, Hermes skill export, CLI.
 
+Also done: workflows (triggers, extraction, conditions, thresholds, tiles,
+nesting), question channels including Matrix, plain-language procedure edits
+and workflow drafting, with unit tests and a workflow step in the Linux E2E.
+
 Next:
-1. Loops (`repeat_for: rows of a CSV`) and data extraction steps (read a
-   value from the screen via OCR/UIA and use it later).
+1. Loops (`for_each: rows of a CSV` in workflows) and data extraction steps
+   (read a value from the screen via OCR/UIA into `steps.<id>.outputs`).
 2. `expect` checks driven by screenshots/OCR (reuse `hermes_gui.ocr`).
 3. Several recordings of the same task → LLM diffs them to find params
    automatically.
 4. Mixed procedures (desktop + browser) compiled into one Python script.
 5. Wayland backend (section 5).
 6. A small tray UI for start/stop/privacy and the verdict prompt on Windows.
+7. Gmail push (Pub/Sub) or IMAP IDLE instead of polling; a webhook listener
+   for `workflow trigger` with HMAC.

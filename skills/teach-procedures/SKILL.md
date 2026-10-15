@@ -1,7 +1,7 @@
 ---
 name: teach-procedures
-description: Learn repetitive procedures by watching the user (Windows or Linux), turn them into parameterized skills, replay them with new inputs, track acceptance and promote proven ones to Playwright/AutoIt/xdotool scripts. Use when the user says "watch me", "learn how I do X", "do it like last time", or asks to automate something they do repeatedly.
-version: 0.1.0
+description: Learn repetitive procedures by watching the user (Windows or Linux), turn them into parameterized skills, replay them with new inputs, change them from plain-language instructions, chain them into workflows triggered by e-mails/files/schedules with thresholds that ask the user, track acceptance and promote proven ones to Playwright/AutoIt/xdotool scripts. Use when the user says "watch me", "learn how I do X", "do it like last time", "when X happens do Y", "above N ask me", or asks to automate something they do repeatedly.
+version: 0.2.0
 platforms: [windows, linux]
 tags: [recording, procedures, gui, automation, bitwarden, playwright, autoit]
 ---
@@ -33,6 +33,29 @@ Do not use for one-off tasks you can do directly with other tools.
 4. Run: `hermes-teach run <name>.yaml --param k=v ...`. Confirm steps stop and ask the user;
    never pass `--yes` unless the user explicitly asked for unattended runs of this procedure.
 5. Ask the user whether the result is correct; record it with `hermes-teach verdict accept|reject`.
+
+## Changing a learned procedure
+- The user says what should differ ("if the supplier is from DE tick reverse charge instead of VAT 23%",
+  "also fill the due date"): `hermes-teach edit <name>.yaml "<their words>" --show` prints the diff;
+  without `--show` it saves a new version. Read the summary line back (new params, inferred steps).
+- Steps marked `note: inferred, verify` were not recorded: run `--dry-run`, then a real run while the
+  user watches, before relying on them.
+
+## Workflows: "when X happens, do A, above N ask me, then B"
+- Draft from the user's sentence: `hermes-teach workflow draft "<their words>" --out <name>.yaml`
+  (it only uses procedures that exist; if one is missing, record it first with the steps above).
+- Show the plan and rehearse: `hermes-teach workflow show <name>.yaml`,
+  `hermes-teach workflow run <name>.yaml --dry-run --input k=v`.
+- Run by hand: `hermes-teach workflow run <name>.yaml --input k=v`. With an event from Hermes
+  (webhook, mail you already parsed): `hermes-teach workflow trigger <name>.yaml --payload event.json`.
+- Automatic triggers (`on: email/file/schedule`) need `hermes-teach workflow watch --once` on a schedule
+  (Hermes cron every few minutes) or `watch` running as a service.
+- Questions (thresholds, `confirm`, `ask` tiles) go to the user's channel: set `HERMES_TEACH_MATRIX_*`
+  for the Matrix room, or `HERMES_TEACH_ASK_CMD` to route them through yourself. Never answer them
+  for the user and never pass `--yes` unless the user asked for unattended runs of this workflow.
+- Tiles you can use besides procedures: `hermes-teach workflow tiles`. Prefer `table.append` for
+  "write it to Excel/CSV", `notify` for "tell me", `ask` for decisions with options.
+- `hermes-teach export-skill <name>.yaml` works for workflows too (SKILL.md + workflow.yaml).
 
 ## Promotion to a script
 - `hermes-teach metrics` shows success, acceptance streak and where runs fail.

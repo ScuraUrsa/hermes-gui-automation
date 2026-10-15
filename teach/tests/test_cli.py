@@ -67,12 +67,13 @@ def test_workflow_cli_dry_run_trigger_export(tmp_path, teach_home, capsys, examp
     assert "1234.56" in out and "would ask" in out and "would append" in out and not log.exists()
     assert "pw" not in out.replace("pay", "")      # dry run never resolves secrets
 
-    # real (dry drivers) run through the CLI: --yes answers the threshold question, secrets from env
+    # real run through the CLI: --yes answers the threshold question, secrets from env; the browser cannot
+    # start (bogus executable), so the pay step fails and the `always` notice reports it
+    monkeypatch.setenv("HERMES_TEACH_CHROMIUM", str(tmp_path / "no-such-chromium"))
     assert main(["workflow", "trigger", wf, "--dir", str(lib), "--payload", payload, "--yes",
                  "--secrets-provider", "env", "--input", f"log_file={log}", "--input", "threshold=100"]) == 1
     out = capsys.readouterr().out
-    assert "no browser driver" in out or "playwright" in out.lower()   # no Chromium in unit tests: pay fails
-    assert "NOT paid" in out
+    assert "failed    pay" in out and "NOT paid" in out and "(auto)" in out
 
     assert main(["export-skill", wf, "--dir", str(tmp_path / "skills")]) == 0
     skill = (tmp_path / "skills" / "pay-invoice-from-email" / "SKILL.md").read_text()

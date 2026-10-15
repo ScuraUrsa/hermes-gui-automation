@@ -86,7 +86,7 @@ class Extract:
     default: Any = None
     required: bool = False
     llm: str = ""                 # question for the LLM when there is no regex / no match
-    flags: str = "is"             # regex flags: i = ignore case, s = dot matches newline, m = multiline
+    flags: str = "i"              # regex flags: i = ignore case, s = dot matches newline, m = multiline
 
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {"from": self.source}
@@ -101,7 +101,7 @@ class Extract:
             d["default"] = self.default
         if self.required:
             d["required"] = True
-        if self.flags != "is":
+        if self.flags != "i":
             d["flags"] = self.flags
         return d
 
@@ -114,7 +114,7 @@ class Extract:
             raise ProcedureError(f"extract {name}: unknown type {t}")
         return cls(name=name, source=str(d.get("from", "trigger.body")), regex=str(d.get("regex", "") or ""),
                    group=d.get("group", 1), type=t, default=d.get("default"), required=bool(d.get("required")),
-                   llm=str(d.get("llm", "") or ""), flags=str(d.get("flags", "is")))
+                   llm=str(d.get("llm", "") or ""), flags=str(d.get("flags", "i")))
 
 
 _STEP_KEYS = {"id", "uses", "if", "needs", "confirm", "confirm_when", "confirm_text", "continue_on_error",
