@@ -1,7 +1,7 @@
 ---
 name: teach-procedures
 description: Learn repetitive procedures by watching the user (Windows or Linux), turn them into parameterized skills, replay them with new inputs, change them from plain-language instructions, chain them into workflows triggered by e-mails/files/schedules with thresholds that ask the user, track acceptance and promote proven ones to Playwright/AutoIt/xdotool scripts. Use when the user says "watch me", "learn how I do X", "do it like last time", "when X happens do Y", "above N ask me", or asks to automate something they do repeatedly.
-version: 0.2.0
+version: 0.3.0
 platforms: [windows, linux]
 tags: [recording, procedures, gui, automation, bitwarden, playwright, autoit]
 ---
@@ -14,6 +14,18 @@ tags: [recording, procedures, gui, automation, bitwarden, playwright, autoit]
 - A learned procedure has been accepted several times and could become a script.
 
 Do not use for one-off tasks you can do directly with other tools.
+
+## Teach mode: only when the user says so
+Teaching is OFF by default (Filip, 2026-10-24). You learn only on an explicit request ("naucz się", "watch me",
+"record this", "włącz nauczanie"), never by yourself or "at the occasion" of the user's normal work.
+- Check first: `hermes-teach-mode status` (VM). Off means: no screen, no browser, no trigger timer, no recording.
+- Turn it on only when the user asked to teach, replay or test a procedure/workflow:
+  `hermes-teach-mode on --for 2h` (auto-off; tell the user when it ends). Never `--for 0` unless they asked.
+- When the task is done, turn it off: `hermes-teach-mode off`. If a replay still runs, ask before `--force`.
+- Never start a recorder on the user's PC or laptop on your own; desktop recording there starts only when the
+  user runs `hermes-teach record` themselves.
+- Workflow triggers (e-mail/file/schedule) are checked only while teach mode is on; do not add Hermes cron jobs
+  that run `workflow watch` or turn teach mode on periodically unless the user explicitly asks for that.
 
 ## Learning a new procedure
 1. Ask what the task is and what usually changes between runs (values, choices, conditions).
@@ -48,8 +60,8 @@ Do not use for one-off tasks you can do directly with other tools.
   `hermes-teach workflow run <name>.yaml --dry-run --input k=v`.
 - Run by hand: `hermes-teach workflow run <name>.yaml --input k=v`. With an event from Hermes
   (webhook, mail you already parsed): `hermes-teach workflow trigger <name>.yaml --payload event.json`.
-- Automatic triggers (`on: email/file/schedule`) need `hermes-teach workflow watch --once` on a schedule
-  (Hermes cron every few minutes) or `watch` running as a service.
+- Automatic triggers (`on: email/file/schedule`) are polled by `hermes-teach-watch.timer`, which runs only
+  while teach mode is on (see above).
 - Questions (thresholds, `confirm`, `ask` tiles) go to the user's channel: set `HERMES_TEACH_MATRIX_*`
   for the Matrix room, or `HERMES_TEACH_ASK_CMD` to route them through yourself. Never answer them
   for the user and never pass `--yes` unless the user asked for unattended runs of this workflow.
