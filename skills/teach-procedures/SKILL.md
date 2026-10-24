@@ -1,6 +1,6 @@
 ---
 name: teach-procedures
-description: Learn repetitive procedures by watching the user (Windows or Linux), turn them into parameterized skills, replay them with new inputs, change them from plain-language instructions, chain them into workflows triggered by e-mails/files/schedules with thresholds that ask the user, track acceptance and promote proven ones to Playwright/AutoIt/xdotool scripts. Use when the user says "watch me", "learn how I do X", "do it like last time", "when X happens do Y", "above N ask me", or asks to automate something they do repeatedly.
+description: Learn repetitive procedures by watching the user (Windows or Linux), turn them into parameterized skills, replay them with new inputs, change them from plain-language instructions, chain them into workflows triggered by e-mails/files/schedules with thresholds that ask the user, track acceptance and promote proven ones to Playwright/AutoIt/xdotool scripts. Use only when the user explicitly asks: "watch me", "learn how I do X", "do it like last time", "when X happens do Y", "above N ask me", "turn teaching on/off". Never start recording or teaching on your own.
 version: 0.3.0
 platforms: [windows, linux]
 tags: [recording, procedures, gui, automation, bitwarden, playwright, autoit]
