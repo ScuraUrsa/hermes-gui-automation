@@ -72,6 +72,23 @@ def format_question(question: str, options: list[str] | None) -> str:
     return question + "\n" + "\n".join(f"  {i}. {o}" for i, o in enumerate(options, 1))
 
 
+def _publish(path: Path, text: str) -> None:
+    """Write ``text`` to ``path`` atomically, so a reader never sees a partial file.
+
+    ``Path.write_text`` creates the name first and fills it afterwards: anything
+    that polls the directory (the watcher answering a question, a ``*.notify.txt``
+    consumer) can observe an empty or truncated file. The content goes to a hidden
+    temp file next to the target and is renamed into place, which is atomic on both
+    POSIX and Windows.
+    """
+    tmp = path.with_name(f".{path.name}.{uuid.uuid4().hex[:8]}.tmp")
+    try:
+        tmp.write_text(text, encoding="utf-8")
+        os.replace(tmp, path)
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
 class ScriptedChannel:
     def __init__(self, answers: list[str | None] | None = None, default: str | None = "yes") -> None:
         self.answers = list(answers or [])
@@ -145,6 +162,13 @@ class CommandChannel:
 
 
 class FileChannel:
+    """Question/answer files in a shared directory.
+
+    Files are published atomically (temp file + rename): a watcher that polls the
+    directory must never be able to read a half-written question, and an answer
+    that is still being written is waited for instead of being taken as empty.
+    """
+
     def __init__(self, directory: str | Path, poll: float = 2.0) -> None:
         self.dir = Path(directory)
         self.dir.mkdir(parents=True, exist_ok=True)
@@ -152,21 +176,22 @@ class FileChannel:
 
     def ask(self, question: str, options: list[str] | None = None, timeout: float = 0) -> str | None:
         qid = time.strftime("%Y%m%d-%H%M%S-") + uuid.uuid4().hex[:6]
-        (self.dir / f"{qid}.question.json").write_text(
-            json.dumps({"id": qid, "question": question, "options": options or []}, ensure_ascii=False),
-            encoding="utf-8")
+        _publish(self.dir / f"{qid}.question.json",
+                 json.dumps({"id": qid, "question": question, "options": options or []}, ensure_ascii=False))
         answer = self.dir / f"{qid}.answer"
         deadline = time.time() + (timeout or 3600)
         while time.time() < deadline:
-            if answer.exists():
+            try:
                 raw = answer.read_text(encoding="utf-8").strip()
+            except FileNotFoundError:
+                raw = ""
+            if raw:  # an existing but still empty file means the writer is mid-write
                 return match_option(raw, options) if options else raw
             time.sleep(self.poll)
         return None
 
     def notify(self, text: str) -> None:
-        (self.dir / (time.strftime("%Y%m%d-%H%M%S-") + uuid.uuid4().hex[:6] + ".notify.txt")).write_text(
-            text, encoding="utf-8")
+        _publish(self.dir / (time.strftime("%Y%m%d-%H%M%S-") + uuid.uuid4().hex[:6] + ".notify.txt"), text)
 
 
 class MatrixChannel:
