@@ -1,4 +1,5 @@
 import json
+import pathlib
 import sys
 import threading
 import time
@@ -65,6 +66,67 @@ def test_file_channel_roundtrip(tmp_path):
     threading.Thread(target=answer_later, daemon=True).start()
     assert c.ask("Which?", ["a", "b"], timeout=5) == "b"
     assert c.ask("Nobody answers", None, timeout=0.2) is None
+
+
+def test_file_channel_waits_for_an_answer_that_is_still_being_written(tmp_path):
+    """A writer that creates ``<id>.answer`` and fills it a moment later must not be seen as "no"."""
+    c = FileChannel(tmp_path, poll=0.01)
+
+    def answer_in_two_steps():
+        for _ in range(200):
+            qs = list(tmp_path.glob("*.question.json"))
+            if qs:
+                q = json.loads(qs[0].read_text(encoding="utf-8"))
+                target = tmp_path / (q["id"] + ".answer")
+                target.write_text("", encoding="utf-8")      # opened, nothing written yet
+                time.sleep(0.1)
+                target.write_text("2", encoding="utf-8")     # actual answer
+                return
+            time.sleep(0.01)
+
+    threading.Thread(target=answer_in_two_steps, daemon=True).start()
+    assert c.ask("Which?", ["a", "b"], timeout=5) == "b"
+
+
+def test_file_channel_publishes_questions_atomically(tmp_path, monkeypatch):
+    """A poller must never read a question file that exists but is not written yet (the flake's cause)."""
+    real_write_text = pathlib.Path.write_text
+
+    def slow_write_text(self, data, *args, **kwargs):
+        # a writer that creates the file and fills it later: what Path.write_text does, but slow
+        with self.open("w", encoding=kwargs.get("encoding", "utf-8")) as fh:
+            time.sleep(0.05)
+            fh.write(data)
+        return len(str(data))
+
+    c = FileChannel(tmp_path, poll=0.01)
+    broken: list[str] = []
+    stop = threading.Event()
+    answered = threading.Event()
+
+    def watch():
+        while not stop.is_set():
+            for p in tmp_path.glob("*.question.json"):
+                if answered.is_set():
+                    continue
+                try:
+                    q = json.loads(p.read_text(encoding="utf-8"))
+                except (OSError, ValueError) as exc:     # ValueError covers JSONDecodeError
+                    broken.append(f"{p.name}: {exc}")
+                    continue
+                real_write_text(tmp_path / (q["id"] + ".answer"), "2", encoding="utf-8")
+                answered.set()
+            time.sleep(0.001)
+
+    watcher = threading.Thread(target=watch, daemon=True)
+    watcher.start()
+    monkeypatch.setattr(pathlib.Path, "write_text", slow_write_text)
+    try:
+        assert c.ask("Which?", ["a", "b"], timeout=5) == "b"
+    finally:
+        stop.set()
+        watcher.join(2)
+    assert broken == []
 
 
 class FakeMatrix:
