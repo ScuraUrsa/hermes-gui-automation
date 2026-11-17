@@ -32,7 +32,7 @@ dev = [
 # on transformers >= 4.50; einops and timm are imported by that remote code.
 vlm = [
     "torch",
-    "transformers>=4.38,<4.50",
+    "transformers>=4.57,<4.58",
     "einops",
     "timm",
 ]
