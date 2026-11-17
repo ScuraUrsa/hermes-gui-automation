@@ -9,7 +9,7 @@ jobs:
   check-model-updates:
     runs-on: ${{ vars.CI_RUNS_ON || 'hermes' }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Check for new Florence-2 releases
         run: |
           echo "Checking Florence-2 model updates..."
@@ -33,7 +33,7 @@ jobs:
     needs: check-model-updates
     runs-on: ${{ vars.CI_RUNS_ON || 'hermes' }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
